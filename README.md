@@ -1,156 +1,229 @@
-# AI智能招聘分析系统
+# 智能招聘分析系统 / AI Recruitment Analysis System
 
-基于Coze的AI智能招聘分析平台，提供简历分析和面试评估功能。
+一个基于AI的智能招聘分析系统，集成Coze工作流，提供简历分析和面试评估功能。
 
-## 功能特性
+An AI-powered recruitment analysis system integrated with Coze workflows, providing resume analysis and interview evaluation features.
 
-### 📄 简历分析
-- 支持多种格式：PDF、DOC、DOCX、TXT
-- 智能匹配度分析
-- 技能差距识别
-- 面试问题推荐
-- 改进建议
+## 🚀 功能特性 / Features
 
-### 🎤 面试分析
-- 面试录音转文字分析
-- 表现评估
-- 沟通能力评估
-- 改进建议
+### 简历分析 / Resume Analysis
+- 📄 支持多种格式：PDF、DOC、DOCX、TXT
+- 🎯 智能匹配度分析
+- 💡 技能差距识别
+- ❓ 面试问题推荐
+- 📈 改进建议
 
-### 👤 用户体验
-- 邮箱登录注册
-- 密码重置功能
-- 多语言支持（中文/英文）
-- 响应式设计
-- 快速上传
-- 报告导出（Markdown/Word）
+### 面试分析 / Interview Analysis
+- 📝 面试录音转录文件分析
+- 📊 面试表现评估
+- 💬 回答质量分析
+- 🗣️ 沟通能力评价
+- ⭐ 综合评分
 
-## 技术栈
+### 用户认证 / User Authentication
+- 🔐 邮箱注册登录
+- 🔑 密码重置功能
+- 👤 用户状态管理
+- 🛡️ 安全认证流程
 
-- **前端**: HTML5, CSS3, JavaScript
-- **UI**: Font Awesome, 自定义CSS
-- **API**: Coze AI 平台
-- **认证**: Supabase Auth
+### 用户体验 / User Experience
+- 🌐 中英文双语支持
+- 📱 响应式设计
+- 🎨 现代化UI界面
+- ⚡ 快速文件上传
+- 📥 结果导出功能
+
+## 🛠️ 技术栈 / Tech Stack
+
+- **前端**: HTML5, CSS3, JavaScript (ES6+)
+- **UI框架**: 原生CSS + Font Awesome图标
+- **API集成**: Coze工作流API
+- **用户认证**: Supabase Auth
 - **部署**: Vercel
-- **开发**: http-server
+- **开发服务器**: http-server
 
-## 本地开发
+## 📦 安装和运行 / Installation & Setup
 
-### 环境要求
-- Node.js 16+
-- npm 或 yarn
+### 本地开发 / Local Development
 
-### 安装依赖
+1. 克隆项目 / Clone the repository
+```bash
+git clone <repository-url>
+cd 简历分析
+```
+
+2. 安装依赖 / Install dependencies
 ```bash
 npm install
 ```
 
-### 环境配置
-1. 复制环境变量文件：
+3. 启动开发服务器 / Start development server
 ```bash
-cp .env.example .env
+npm run dev
 ```
 
-2. 配置环境变量：
-- `COZE_API_TOKEN`: Coze API 令牌
-- `COZE_RESUME_WORKFLOW_ID`: 简历分析工作流ID
-- `COZE_INTERVIEW_WORKFLOW_ID`: 面试分析工作流ID
-- `SUPABASE_URL`: Supabase 项目URL
-- `SUPABASE_ANON_KEY`: Supabase 匿名密钥
-
-### 启动开发服务器
-```bash
-# 启动前端服务器
-npm start
-
-# 启动API开发服务器
-npm run api:dev
+4. 打开浏览器访问 / Open browser and visit
+```
+http://localhost:4321
 ```
 
-访问 http://localhost:4321 查看应用。
+### 生产构建 / Production Build
 
-## Vercel部署
-
-### 自动部署
-1. Fork 此仓库
-2. 在 Vercel 中导入项目
-3. 配置环境变量
-4. 部署
-
-### 手动部署
 ```bash
-# 安装 Vercel CLI
+npm run build
+```
+
+## 🚀 Vercel部署 / Vercel Deployment
+
+### 方法一：通过Vercel CLI / Method 1: Via Vercel CLI
+
+1. 安装Vercel CLI
+```bash
 npm i -g vercel
+```
 
-# 登录 Vercel
+2. 登录Vercel
+```bash
 vercel login
+```
 
-# 部署
+3. 部署项目
+```bash
 vercel
 ```
 
-## 项目结构
+### 方法二：通过GitHub集成 / Method 2: Via GitHub Integration
 
-```
-.
-├── api/                    # Vercel Serverless Functions
-│   ├── resume-analyze.js   # 简历分析API
-│   └── interview-analyze.js # 面试分析API
-├── js/                     # JavaScript 文件
-│   ├── main.js            # 主要逻辑
-│   ├── api.js             # API 调用
-│   ├── supabase.js        # Supabase 配置
-│   └── i18n.js            # 国际化
-├── styles/                 # 样式文件
-│   └── main.css           # 主样式
-├── index.html             # 主页面
-├── package.json           # 项目配置
-├── vercel.json            # Vercel 配置
-└── README.md              # 项目说明
-```
+1. 将代码推送到GitHub仓库
+2. 在Vercel控制台导入GitHub项目
+3. 配置构建设置（已包含vercel.json配置）
+4. 部署完成
 
-## API 接口
+## ⚙️ 配置说明 / Configuration
 
-### 简历分析
-```
-POST /api/resume-analyze
-Content-Type: application/json
+### API配置 / API Configuration
 
-{
-  "resumeFile": "base64_encoded_file",
-  "jobDescription": "job_description_text"
-}
+在 `js/api.js` 文件中配置Coze API：
+
+```javascript
+const API_CONFIG = {
+    baseURL: 'https://api.coze.cn/v1/workflow/run',
+    token: 'your-api-token',
+    spaceId: '7506054716972220443',
+    workflows: {
+        resume: '7513777402993016867',
+        interview: '7514884191588745254'
+    }
+};
 ```
 
-### 面试分析
-```
-POST /api/interview-analyze
-Content-Type: application/json
+### Supabase配置 / Supabase Configuration
 
-{
-  "interviewFile": "base64_encoded_pdf",
-  "intervieweeName": "candidate_name",
-  "recordingUrl": "optional_recording_url"
-}
+在 `js/supabase.js` 文件中配置Supabase项目：
+
+```javascript
+const SUPABASE_URL = 'https://your-project-ref.supabase.co';
+const SUPABASE_ANON_KEY = 'your_supabase_anon_key_here';
 ```
 
-## 贡献指南
+获取配置信息：
+1. 登录 [Supabase控制台](https://supabase.com/dashboard)
+2. 进入 Project Settings -> API
+3. 复制 Project URL 和 anon public key
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+### 环境变量 / Environment Variables
 
-## 许可证
+复制 `.env.example` 为 `.env` 并配置：
+- `COZE_PAT`: Coze API访问令牌
+- `COZE_RESUME_WORKFLOW_ID`: 简历分析工作流ID
+- `COZE_INTERVIEW_WORKFLOW_ID`: 面试分析工作流ID
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+Vercel部署时可配置环境变量：
+- `COZE_API_TOKEN`: Coze API访问令牌
+- `COZE_SPACE_ID`: Coze空间ID
 
-## 联系方式
+## 📁 项目结构 / Project Structure
 
-- 项目链接: [https://github.com/vientwu/ai-hr-analysis-platform](https://github.com/vientwu/ai-hr-analysis-platform)
-- 问题反馈: [Issues](https://github.com/vientwu/ai-hr-analysis-platform/issues)
+```
+简历分析/
+├── index.html          # 主页面
+├── package.json        # 项目配置
+├── vercel.json         # Vercel部署配置
+├── README.md           # 项目说明
+├── styles/
+│   └── main.css        # 主样式文件
+└── js/
+    ├── main.js         # 主逻辑文件
+    ├── api.js          # API调用模块
+    └── i18n.js         # 国际化支持
+```
+
+## 🔧 使用说明 / Usage Guide
+
+### 简历分析 / Resume Analysis
+
+1. 点击"简历分析"功能卡片
+2. 上传简历文件（支持PDF、DOC、DOCX、TXT格式）
+3. 输入详细的岗位职责描述
+4. 点击"开始分析简历"按钮
+5. 等待AI分析完成
+6. 查看分析结果并可下载报告
+
+### 面试分析 / Interview Analysis
+
+1. 点击"面试分析"功能卡片
+2. 上传面试录音转录PDF文件
+3. 输入面试者姓名
+4. （可选）输入录音链接
+5. 点击"开始分析面试"按钮
+6. 等待AI分析完成
+7. 查看分析结果并可下载报告
+
+## 🔒 安全说明 / Security Notes
+
+- API令牌已配置在前端代码中，仅用于演示
+- 生产环境建议使用后端代理API调用
+- 文件上传大小限制为500MB
+- 支持的文件格式已进行验证
+
+## 🐛 故障排除 / Troubleshooting
+
+### 常见问题 / Common Issues
+
+1. **API调用失败**
+   - 检查网络连接
+   - 验证API令牌是否有效
+   - 确认工作流ID是否正确
+
+2. **文件上传失败**
+   - 检查文件格式是否支持
+   - 确认文件大小不超过500MB
+   - 尝试重新选择文件
+
+3. **页面显示异常**
+   - 清除浏览器缓存
+   - 检查JavaScript控制台错误
+   - 确认所有资源文件加载正常
+
+## 📞 技术支持 / Technical Support
+
+如遇到问题，请检查：
+1. 浏览器控制台错误信息
+2. 网络连接状态
+3. API服务状态
+
+## 📄 许可证 / License
+
+MIT License
+
+## 🤝 贡献 / Contributing
+
+欢迎提交Issue和Pull Request来改进项目。
+
+Welcome to submit Issues and Pull Requests to improve the project.
 
 ---
 
-**注意**: 使用前请确保已正确配置 Coze API 和 Supabase 服务。
+**开发完成时间**: 2024年12月
+**版本**: v1.0.0
+**状态**: 生产就绪 ✅
