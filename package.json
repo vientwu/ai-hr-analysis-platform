@@ -1,0 +1,31 @@
+{
+  "name": "ai-hr-analysis-platform",
+  "version": "1.0.0",
+  "description": "AI驱动的智能招聘分析系统 - 简历分析与面试评估",
+  "main": "index.html",
+  "type": "module",
+  "scripts": {
+    "dev": "npx http-server . -p 4321 -c-1",
+    "build": "echo 'Build completed'",
+    "start": "npx http-server . -p 4321",
+    "api:dev": "node dev-server.js"
+  },
+  "keywords": [
+    "AI",
+    "recruitment",
+    "resume-analysis",
+    "interview-analysis",
+    "coze-workflow"
+  ],
+  "author": "AI Recruitment Team",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "vercel": "^48.6.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

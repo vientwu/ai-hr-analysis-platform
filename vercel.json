@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "functions": {
+    "api/resume-analyze.js": {
+      "maxDuration": 30
+    },
+    "api/interview-analyze.js": {
+      "maxDuration": 30
+    }
+  }
+}
