@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简历分析记录 | AI智能招聘分析系统</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://api.coze.cn https://cdn.jsdelivr.net; frame-src 'none'; object-src 'none'; base-uri 'self';">
+    <link rel="stylesheet" href="styles/main.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%232563eb'/%3E%3Ctext x='32' y='42' font-size='36' text-anchor='middle' fill='white'%3EA%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-brain"></i>
+                <span data-zh="必涨·AI招聘分析" data-en="Bizhang · AI Recruitment">必涨·AI招聘分析</span>
+            </div>
+            <div class="nav-actions">
+                <nav class="nav-links">
+                    <a href="resume-history.html" class="nav-link active">简历分析记录</a>
+                    <a href="interview-history.html" class="nav-link">面试分析记录</a>
+                    <a href="index.html" class="nav-link">分析工具</a>
+                </nav>
+                <button class="lang-toggle" onclick="toggleLanguage()">
+                    <i class="fas fa-globe"></i>
+                    <span id="lang-text">EN</span>
+                </button>
+                <div class="auth-actions">
+                    <div class="user-menu" id="userMenu" style="display: none;">
+                        <div class="dropdown">
+                            <button class="btn-secondary dropdown-toggle" id="userDropdown">
+                                <span id="userDisplayName">用户</span>
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                    <path d="M6 8L2 4h8L6 8z"/>
+                                </svg>
+                            </button>
+                            <div class="dropdown-menu" id="dropdownMenu">
+                                <a href="javascript:void(0)" class="dropdown-item" onclick="showMyReports()">我的报告</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="resume-history.html" class="dropdown-item">简历分析记录</a>
+                                <a href="interview-history.html" class="dropdown-item">面试分析记录</a>
+                                <div class="dropdown-divider"></div>
+                                <button class="dropdown-item" id="logoutBtn">退出登录</button>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="index.html" id="login-btn" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">登录</a>
+                    <button id="logout-btn" class="btn-secondary" style="display:none" onclick="handleLogout()">退出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <div class="history-header">
+            <h1><i class="fas fa-file-alt"></i> 简历分析记录</h1>
+            <p>查看您的简历分析历史记录和详细报告</p>
+        </div>
+
+        <!-- 筛选和搜索 -->
+        <div class="history-filters">
+            <div class="filter-group">
+                <label for="dateFilter">时间筛选：</label>
+                <select id="dateFilter" class="filter-select">
+                    <option value="all">全部时间</option>
+                    <option value="today">今天</option>
+                    <option value="week">最近一周</option>
+                    <option value="month">最近一月</option>
+                    <option value="quarter">最近三月</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="statusFilter">状态筛选：</label>
+                <select id="statusFilter" class="filter-select">
+                    <option value="all">全部状态</option>
+                    <option value="completed">分析完成</option>
+                    <option value="processing">分析中</option>
+                    <option value="failed">分析失败</option>
+                </select>
+            </div>
+            <div class="search-group">
+                <input type="text" id="searchInput" placeholder="搜索岗位名称或公司..." class="search-input">
+                <button class="search-btn" onclick="searchRecords()">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="stats-cards">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="totalAnalyses">0</h3>
+                    <p>总分析次数</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="avgScore">0%</h3>
+                    <p>平均匹配度</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-calendar"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="thisMonth">0</h3>
+                    <p>本月分析</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div class="stat-info">
+                    <h3 id="bestMatch">0%</h3>
+                    <p>最高匹配度</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 历史记录列表 -->
+        <div class="history-list">
+            <div class="list-header">
+                <h2>分析记录</h2>
+                <button class="btn-primary" onclick="window.location.href='index.html'">
+                    <i class="fas fa-plus"></i>
+                    新建分析
+                </button>
+            </div>
+
+            <!-- 记录项模板 -->
+            <div id="recordsList" class="records-container">
+                <!-- 加载状态 -->
+                <div class="loading-state" id="loadingState">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载分析记录...</p>
+                </div>
+
+                <!-- 空状态 -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <h3>暂无分析记录</h3>
+                    <p>您还没有进行过简历分析，点击下方按钮开始您的第一次分析</p>
+                    <button class="btn-primary" onclick="window.location.href='index.html'">
+                        <i class="fas fa-plus"></i>
+                        开始分析
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情模态框 -->
+    <div class="modal-overlay" id="detailModal" style="display: none;">
+        <div class="modal-content detail-modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">分析详情</h3>
+                <button class="modal-close" onclick="closeDetailModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- 详情内容将在这里动态加载 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeDetailModal()">关闭</button>
+                <button class="btn-primary" onclick="downloadReport()">
+                    <i class="fas fa-download"></i>
+                    下载报告
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/i18n.js"></script>
+    <!-- 全局错误处理器，需在 main.js 之前加载 -->
+    <script src="js/error-handler.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/main.js"></script>
+
+</body>
+</html>

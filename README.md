@@ -1,8 +1,16 @@
-# 智能招聘分析系统 / AI Recruitment Analysis System
+# AI智能招聘分析系统
 
-一个基于AI的智能招聘分析系统，集成Coze工作流，提供简历分析和面试评估功能。
+<div align="center">
 
-An AI-powered recruitment analysis system integrated with Coze workflows, providing resume analysis and interview evaluation features.
+![AI Recruitment Analyzer](https://img.shields.io/badge/AI-Recruitment%20Analyzer-blue?style=for-the-badge&logo=artificial-intelligence)
+![Version](https://img.shields.io/badge/version-1.0.0-green?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
+
+一个基于人工智能的招聘辅助工具，帮助HR和招聘人员快速分析简历和进行面试评估。
+
+[🚀 在线体验](https://your-domain.vercel.app) | [📖 用户手册](docs/user-manual.md) | [🔧 开发者指南](docs/developer-guide.md) | [📋 API文档](docs/api-documentation.md)
+
+</div>
 
 ## 🚀 功能特性 / Features
 

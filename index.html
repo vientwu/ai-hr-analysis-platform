@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI智能招聘分析系统 | AI Recruitment Analyzer</title>
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 https://*.supabase.co https://api.coze.cn https://cdn.jsdelivr.net; frame-src 'none'; object-src 'none'; base-uri 'self';">
     <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="css/reports.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- 内置图标，避免 favicon.ico 404 -->
@@ -19,18 +22,34 @@
                 <span data-zh="必涨·AI招聘分析" data-en="Bizhang · AI Recruitment">必涨·AI招聘分析</span>
             </div>
             <div class="nav-actions">
-                <div class="nav-links">
-                    <button class="nav-link" onclick="showHome()">首页</button>
-                    <button class="nav-link" onclick="showResumeAnalysis()">简历分析</button>
-                    <button class="nav-link" onclick="showInterviewAnalysis()">面试分析</button>
-                    <button class="nav-link" onclick="showMyReports()">我的报告</button>
-                </div>
+                <nav class="nav-links">
+                    <a href="resume-history.html" class="nav-link">简历分析记录</a>
+                    <a href="interview-history.html" class="nav-link">面试分析记录</a>
+                    <a href="index.html" class="nav-link active">分析工具</a>
+                </nav>
                 <button class="lang-toggle" onclick="toggleLanguage()">
                     <i class="fas fa-globe"></i>
                     <span id="lang-text">EN</span>
                 </button>
                 <div class="auth-actions">
-                    <button id="login-btn" class="btn-secondary" onclick="openLoginModal()">登录</button>
+                    <div class="user-menu" id="userMenu" style="display: none;">
+                        <div class="dropdown">
+                            <button class="btn-secondary dropdown-toggle" id="userDropdown">
+                                <span id="userDisplayName">用户</span>
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                    <path d="M6 8L2 4h8L6 8z"/>
+                                </svg>
+                            </button>
+                            <div class="dropdown-menu" id="dropdownMenu">
+                                <a href="resume-history.html" class="dropdown-item">简历分析记录</a>
+                                <a href="interview-history.html" class="dropdown-item">面试分析记录</a>
+                                <button class="dropdown-item" onclick="showMyReports()">我的报告</button>
+                                <div class="dropdown-divider"></div>
+                                <button class="dropdown-item" id="logoutBtn">退出登录</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="login-btn" class="btn-secondary" onclick="showAuthModal()" style="display: inline-flex; align-items: center; justify-content: center;">登录</button>
                     <button id="logout-btn" class="btn-secondary" style="display:none" onclick="handleLogout()">退出</button>
                 </div>
             </div>
@@ -230,13 +249,256 @@
             </div>
             <div id="my-reports-content">
                 <p id="reports-notice" class="notice">请先登录后查看与保存报告。</p>
-                <div class="result-actions" style="margin-bottom:1rem">
-                    <button class="btn-secondary" onclick="loadMyReports()">
-                        <i class="fas fa-sync"></i>
-                        刷新列表
+                <!-- 子标签 -->
+                <div class="tab-container" style="margin: 0.5rem 0 1rem;">
+                    <button class="tab-button active" id="tab-reports" onclick="switchReportsTab('reports')">报告列表</button>
+                    <button class="tab-button" id="tab-resume" onclick="switchReportsTab('resume')">简历历史</button>
+                    <button class="tab-button" id="tab-interview" onclick="switchReportsTab('interview')">面试历史</button>
+                </div>
+                
+                <!-- 报告列表标签页 -->
+                <div id="reports-tab-content" class="tab-content-panel">
+                    <div class="result-actions" style="margin-bottom:1rem">
+                        <button class="btn-secondary" id="subtab-refresh-btn" onclick="loadMyReports()">
+                            <i class="fas fa-sync"></i>
+                            刷新列表
+                        </button>
+                    </div>
+                    <!-- 报告列表 -->
+                    <div id="reports-list" class="result-content markdown-content"></div>
+                </div>
+
+                <!-- 简历历史标签页 -->
+                <div id="resume-tab-content" class="tab-content-panel" style="display:none">
+                    <!-- 筛选和搜索 -->
+                    <div class="history-filters">
+                        <div class="filter-group">
+                            <label for="resumeDateFilter">时间筛选：</label>
+                            <select id="resumeDateFilter" class="filter-select">
+                                <option value="all">全部时间</option>
+                                <option value="today">今天</option>
+                                <option value="week">最近一周</option>
+                                <option value="month">最近一月</option>
+                                <option value="quarter">最近三月</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="resumeStatusFilter">状态筛选：</label>
+                            <select id="resumeStatusFilter" class="filter-select">
+                                <option value="all">全部状态</option>
+                                <option value="completed">分析完成</option>
+                                <option value="processing">分析中</option>
+                                <option value="failed">分析失败</option>
+                            </select>
+                        </div>
+                        <div class="search-group">
+                            <input type="text" id="resumeSearchInput" placeholder="搜索简历文件名或岗位..." class="search-input">
+                            <button class="search-btn" onclick="searchResumeRecords()">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 统计信息 -->
+                    <div class="stats-cards">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="resumeTotalAnalyses">0</h3>
+                                <p>总分析次数</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="resumeAvgScore">0分</h3>
+                                <p>平均匹配度</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-calendar"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="resumeThisMonth">0</h3>
+                                <p>本月分析</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="resumeBestScore">0分</h3>
+                                <p>最高匹配度</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 历史记录列表 -->
+                    <div class="history-list">
+                        <div class="list-header">
+                            <h2>分析记录</h2>
+                            <button class="btn-primary" onclick="showResumeAnalysis()">
+                                <i class="fas fa-plus"></i>
+                                新建分析
+                            </button>
+                        </div>
+
+                        <!-- 记录项模板 -->
+                        <div id="resumeRecordsList" class="records-container">
+                            <!-- 加载状态 -->
+                            <div class="loading-state" id="resumeLoadingState">
+                                <div class="loading-spinner"></div>
+                                <p>正在加载分析记录...</p>
+                            </div>
+
+                            <!-- 空状态 -->
+                            <div class="empty-state" id="resumeEmptyState" style="display: none;">
+                                <div class="empty-icon">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                                <h3>暂无分析记录</h3>
+                                <p>您还没有进行过简历分析，点击下方按钮开始您的第一次分析</p>
+                                <button class="btn-primary" onclick="showResumeAnalysis()">
+                                    <i class="fas fa-plus"></i>
+                                    开始分析
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 面试历史标签页 -->
+                <div id="interview-tab-content" class="tab-content-panel" style="display:none">
+                    <!-- 筛选和搜索 -->
+                    <div class="history-filters">
+                        <div class="filter-group">
+                            <label for="interviewDateFilter">时间筛选：</label>
+                            <select id="interviewDateFilter" class="filter-select">
+                                <option value="all">全部时间</option>
+                                <option value="today">今天</option>
+                                <option value="week">最近一周</option>
+                                <option value="month">最近一月</option>
+                                <option value="quarter">最近三月</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="interviewStatusFilter">状态筛选：</label>
+                            <select id="interviewStatusFilter" class="filter-select">
+                                <option value="all">全部状态</option>
+                                <option value="completed">分析完成</option>
+                                <option value="processing">分析中</option>
+                                <option value="failed">分析失败</option>
+                            </select>
+                        </div>
+                        <div class="search-group">
+                            <input type="text" id="interviewSearchInput" placeholder="搜索面试岗位或公司..." class="search-input">
+                            <button class="search-btn" onclick="searchInterviewRecords()">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 统计信息 -->
+                    <div class="stats-cards">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="interviewTotalAnalyses">0</h3>
+                                <p>总分析次数</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="interviewAvgScore">0分</h3>
+                                <p>平均面试得分</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-calendar"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="interviewThisMonth">0</h3>
+                                <p>本月分析</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="interviewBestScore">0分</h3>
+                                <p>最高得分</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 历史记录列表 -->
+                    <div class="history-list">
+                        <div class="list-header">
+                            <h2>分析记录</h2>
+                            <button class="btn-primary" onclick="showInterviewAnalysis()">
+                                <i class="fas fa-plus"></i>
+                                新建分析
+                            </button>
+                        </div>
+
+                        <!-- 记录项模板 -->
+                        <div id="interviewRecordsList" class="records-container">
+                            <!-- 加载状态 -->
+                            <div class="loading-state" id="interviewLoadingState">
+                                <div class="loading-spinner"></div>
+                                <p>正在加载分析记录...</p>
+                            </div>
+
+                            <!-- 空状态 -->
+                            <div class="empty-state" id="interviewEmptyState" style="display: none;">
+                                <div class="empty-icon">
+                                    <i class="fas fa-microphone"></i>
+                                </div>
+                                <h3>暂无分析记录</h3>
+                                <p>您还没有进行过面试分析，点击下方按钮开始您的第一次分析</p>
+                                <button class="btn-primary" onclick="showInterviewAnalysis()">
+                                    <i class="fas fa-plus"></i>
+                                    开始分析
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详情模态框 -->
+        <div class="modal-overlay" id="detailModal" style="display: none;">
+            <div class="modal-content detail-modal">
+                <div class="modal-header">
+                    <h3 id="modalTitle">分析详情</h3>
+                    <button class="modal-close" onclick="closeDetailModal()">
+                        <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div id="reports-list" class="result-content markdown-content"></div>
+                <div class="modal-body" id="modalBody">
+                    <!-- 详情内容将在这里动态加载 -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="closeDetailModal()">关闭</button>
+                    <button class="btn-primary" onclick="downloadReport()">
+                        <i class="fas fa-download"></i>
+                        下载报告
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -253,54 +515,7 @@
     <!-- 错误提示 -->
     <div class="toast" id="toast"></div>
 
-    <!-- 登录弹窗（重新设计） -->
-    <div class="modal-overlay" id="login-modal" style="display:none;">
-        <div class="modal-panel login-panel">
-            <div class="modal-header">
-                <h3>登录你的账号</h3>
-                <button class="modal-close" onclick="closeLoginModal()" aria-label="关闭">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <p class="modal-subtitle">使用邮箱登录或注册</p>
-
-            <div id="login-error" class="error-state" style="display:none;"></div>
-
-            <div class="form-group">
-                <label for="login-email">邮箱</label>
-                <div class="input-with-icon">
-                    <i class="fas fa-envelope"></i>
-                    <input type="email" id="login-email" placeholder="you@example.com" autocomplete="username" />
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="login-password">密码</label>
-                <div class="input-with-icon">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="login-password" placeholder="不少于6位" autocomplete="current-password" />
-                    <button type="button" class="input-action" onclick="(function(btn){const input=document.getElementById('login-password');const s=input.getAttribute('type')==='password'?'text':'password';input.setAttribute('type',s);btn.innerText=s==='password'?'显示':'隐藏';})(this)">显示</button>
-                </div>
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn-primary" onclick="handleEmailLogin()">
-                    <i class="fas fa-sign-in-alt"></i>
-                    登录
-                </button>
-                <button class="btn-secondary" onclick="handleEmailSignup()">
-                    <i class="fas fa-user-plus"></i>
-                    注册
-                </button>
-            </div>
-
-            <div class="modal-help">
-                <a href="#" class="forgot-password-link" onclick="handleForgotPassword(); return false;">忘记密码？</a>
-            </div>
-
-            <p class="modal-privacy privacy-tip">登录即表示你同意我们保存你的报告用于个人查看与下载；管理员可用于系统维护与审计。</p>
-        </div>
-    </div>
+    <!-- 登录模态框已移除，现在使用独立登录页面 -->
 
     <!-- 重置密码弹窗 -->
     <div class="modal-overlay" id="reset-modal" style="display:none;">
@@ -338,6 +553,125 @@
         </div>
     </div>
 
+    <!-- 登录模态框 -->
+    <div class="modal-overlay auth-container" id="login-modal" style="display: none;">
+        <div class="auth-card">
+            <button class="modal-close" onclick="closeLoginModal()" aria-label="关闭">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div class="auth-logo">
+                AI
+            </div>
+            
+            <h2 class="auth-title">欢迎回来</h2>
+            <p class="auth-subtitle">登录您的AI招聘分析账户</p>
+
+            <div class="tab-container">
+                <button class="tab-button active" onclick="switchAuthTab('login')">登录</button>
+                <button class="tab-button" onclick="switchAuthTab('register')">注册</button>
+            </div>
+
+            <!-- 登录表单 -->
+            <div id="modal-login-tab" class="tab-content active">
+                <form id="modal-login-form">
+                    <div class="form-group">
+                        <input type="email" id="modal-login-email" class="form-input" placeholder="请输入您的邮箱地址" required>
+                        <label class="form-label" for="modal-login-email">邮箱地址</label>
+                        <div class="error-message" id="modal-login-email-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="password" id="modal-login-password" class="form-input" placeholder="请输入您的密码" required>
+                        <label class="form-label" for="modal-login-password">密码</label>
+                        <div class="error-message" id="modal-login-password-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="modal-remember-me" class="checkbox-input" checked>
+                            <span class="checkbox-checkmark"></span>
+                            <span class="checkbox-label">记住我的登录状态</span>
+                        </label>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="submit" class="auth-button" id="modal-login-button">
+                            <span class="loading-spinner" id="modal-login-spinner" style="display: none;"></span>
+                            登录
+                        </button>
+                    </div>
+
+                    <div class="error-message" id="modal-login-error"></div>
+                    <div class="success-message" id="modal-login-success"></div>
+                </form>
+
+                <div class="auth-links">
+                    <a href="#" class="auth-link" onclick="showModalForgotPassword()">忘记密码？</a>
+                </div>
+            </div>
+
+            <!-- 注册表单 -->
+            <div id="modal-register-tab" class="tab-content">
+                <form id="modal-register-form">
+                    <div class="form-group">
+                        <label class="form-label" for="modal-register-name">姓名</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="modal-register-name" class="form-input" placeholder="请输入您的姓名" required>
+                        </div>
+                        <div class="error-message" id="modal-register-name-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="modal-register-email">邮箱地址</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-envelope"></i>
+                            <input type="email" id="modal-register-email" class="form-input" placeholder="请输入您的邮箱" required>
+                        </div>
+                        <div class="error-message" id="modal-register-email-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="modal-register-password">密码</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="modal-register-password" class="form-input" placeholder="请输入密码（至少6位）" required>
+                        </div>
+                        <div class="error-message" id="modal-register-password-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="modal-register-confirm">确认密码</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="modal-register-confirm" class="form-input" placeholder="再次输入密码" required>
+                        </div>
+                        <div class="error-message" id="modal-register-confirm-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="modal-agree-terms" class="checkbox-input" required>
+                            <span class="checkbox-checkmark"></span>
+                            <span class="checkbox-label">我同意用户协议和隐私政策</span>
+                        </label>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="submit" class="auth-button" id="modal-register-button">
+                            <span class="loading-spinner" id="modal-register-spinner" style="display: none;"></span>
+                            注册
+                        </button>
+                    </div>
+
+                    <div class="error-message" id="modal-register-error"></div>
+                    <div class="success-message" id="modal-register-success"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Markdown 渲染与安全过滤库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
@@ -345,11 +679,18 @@
     <script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
 
     <script src="js/i18n.js"></script>
+    <script src="js/error-handler.js"></script>
+    <!-- 环境配置（必须在其他模块之前加载） -->
+    <script src="js/env-config.js"></script>
+    <!-- API 调用模块（提供 window.API 全局对象，必须在 main.js 使用前加载） -->
+    <script src="js/api.js"></script>
     <!-- Supabase JS（UMD 版本，提供 window.supabase 全局对象） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
-    <script src="js/supabase.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/main.js"></script>
+    <script type="module" src="js/supabase.js"></script>
+    <script type="module" src="js/notification.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/api-integration.js"></script>
+    <script type="module" src="js/main.js"></script>
     <!-- 已移除 API 调试按钮脚本 -->
 </body>
 </html>

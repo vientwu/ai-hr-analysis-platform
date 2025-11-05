@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分析记录 - 必深AI招聘分析</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-brain"></i>
+                <span>必深AI招聘分析</span>
+            </div>
+            <div class="nav-menu">
+                <a href="index.html" class="nav-link">简历分析</a>
+                <a href="index.html?type=interview" class="nav-link">面试分析</a>
+                <a href="analysis-history.html" class="nav-link active">分析记录</a>
+                <a href="#" class="nav-link" id="help-link">帮助工具</a>
+            </div>
+            <div class="nav-auth">
+                <button id="login-btn" class="btn-primary" onclick="showAuthModal()">登录</button>
+                <div id="userMenu" class="user-menu" style="display: none;">
+                    <div class="user-info">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="userDisplayName">用户</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="dropdown-menu">
+                        <a href="analysis-history.html" class="dropdown-item">
+                            <i class="fas fa-chart-line"></i>
+                            我的报告
+                            <span id="reports-notice" class="notice-badge" style="display: none;">0</span>
+                        </a>
+                        <a href="#" class="dropdown-item" onclick="auth.signOut()">
+                            <i class="fas fa-sign-out-alt"></i>
+                            退出登录
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="main-content">
+        <div class="container">
+            <!-- 页面标题 -->
+            <div class="page-header">
+                <h1><i class="fas fa-history"></i> 分析记录</h1>
+                <p>查看您的所有分析历史记录和详细报告</p>
+            </div>
+
+            <!-- 筛选和搜索 -->
+            <div class="filter-section">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>分析类型：</label>
+                        <select id="typeFilter" class="filter-select">
+                            <option value="all">全部类型</option>
+                            <option value="resume">简历分析</option>
+                            <option value="interview">面试分析</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>时间范围：</label>
+                        <select id="timeFilter" class="filter-select">
+                            <option value="all">全部时间</option>
+                            <option value="today">今天</option>
+                            <option value="week">最近一周</option>
+                            <option value="month">最近一个月</option>
+                        </select>
+                    </div>
+                    <div class="search-group">
+                        <input type="text" id="searchInput" placeholder="搜索分析记录..." class="search-input">
+                        <button onclick="searchRecords()" class="btn-primary">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计面板 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="totalCount">0</div>
+                        <div class="stat-label">总分析数</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="resumeCount">0</div>
+                        <div class="stat-label">简历分析</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="interviewCount">0</div>
+                        <div class="stat-label">面试分析</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="avgScore">0</div>
+                        <div class="stat-label">平均评分</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 记录列表 -->
+            <div class="records-section">
+                <div class="section-header">
+                    <h2>分析记录</h2>
+                    <div class="view-controls">
+                        <button class="view-btn active" data-view="grid">
+                            <i class="fas fa-th-large"></i>
+                        </button>
+                        <button class="view-btn" data-view="list">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="recordsContainer" class="records-grid">
+                    <!-- 记录将通过JavaScript动态加载 -->
+                </div>
+
+                <!-- 加载状态 -->
+                <div id="loadingState" class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>正在加载分析记录...</p>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <i class="fas fa-inbox"></i>
+                    <h3>暂无分析记录</h3>
+                    <p>您还没有进行过任何分析，<a href="index.html">立即开始</a>您的第一次分析吧！</p>
+                </div>
+            </div>
+
+            <!-- 分页 -->
+            <div id="pagination" class="pagination" style="display: none;">
+                <button id="prevPage" class="btn-secondary">上一页</button>
+                <span id="pageInfo">第 1 页，共 1 页</span>
+                <button id="nextPage" class="btn-secondary">下一页</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 详情模态框 -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">分析详情</h3>
+                <span class="close" onclick="closeDetailModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- 详情内容将通过JavaScript动态加载 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeDetailModal()">关闭</button>
+                <button class="btn-primary" onclick="downloadReport()">
+                    <i class="fas fa-download"></i>
+                    下载报告
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="authModalTitle">登录</h3>
+                <span class="close" onclick="hideAuthModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label for="loginEmail">邮箱</label>
+                        <input type="email" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">密码</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn-primary full-width">登录</button>
+                    <p class="auth-switch">
+                        还没有账户？<a href="#" onclick="showRegisterForm()">立即注册</a>
+                    </p>
+                </div>
+                <div id="registerForm" class="auth-form" style="display: none;">
+                    <div class="form-group">
+                        <label for="registerEmail">邮箱</label>
+                        <input type="email" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">密码</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerName">姓名</label>
+                        <input type="text" id="registerName" required>
+                    </div>
+                    <button type="submit" class="btn-primary full-width">注册</button>
+                    <p class="auth-switch">
+                        已有账户？<a href="#" onclick="showLoginForm()">立即登录</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/i18n.js"></script>
+    <!-- 全局错误处理器，需在 main.js 之前加载 -->
+    <script src="js/error-handler.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <!-- 分析记录页面专用脚本 -->
+    <script src="js/analysis-history.js"></script>
+</body>
+</html>

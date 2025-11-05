@@ -1,0 +1,17 @@
+{
+    "status": "healthy",
+    "timestamp": "2025-01-01T00:00:00.000Z",
+    "service": "AI Resume Analysis Platform",
+    "version": "1.0.0",
+    "database": "connected",
+    "apis": {
+        "supabase": "connected",
+        "coze": "configured"
+    },
+    "features": {
+        "resume_analysis": "enabled",
+        "interview_analysis": "enabled",
+        "user_authentication": "enabled",
+        "file_upload": "enabled"
+    }
+}

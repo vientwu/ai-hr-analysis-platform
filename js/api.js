@@ -14,11 +14,12 @@ const API_CONFIG = {
   },
   // 以下为调试工具（debug.js）使用的占位配置，避免页面运行时报错
   // 生产环境不使用这些字段，保持占位即可
-  token: 'pat_xxx',
-  spaceId: 'xxx',
-  workflows: {
-    resume: 'xxx',
-    interview: 'xxx'
+  // 注意：这些是占位符，不是真实的敏感信息
+  debugToken: 'placeholder_token',
+  debugSpaceId: 'placeholder_space',
+  debugWorkflows: {
+    resume: 'placeholder_workflow',
+    interview: 'placeholder_workflow'
   }
 };
 
@@ -28,22 +29,48 @@ const API_CONFIG = {
 async function callResumeAnalysisAPI(resumeFile, jobDescription) {
     try {
         checkFileSizeLimit(resumeFile); // 仍保留前端尺寸校验
-        const fileBase64 = await window.fileToBase64(resumeFile);
-        const response = await fetch(API_CONFIG.endpoints.resume, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fileName: resumeFile.name,
-                fileBase64,
-                jd: jobDescription
-            })
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API请求失败: ${response.status} ${response.statusText}\n${errorText}`);
-        }
-        const result = await response.json();
-        return result; // 保持 { success, data, debug_url? } 结构
+        
+        // 使用重试机制
+        return await retryAPICall(async () => {
+            const fileBase64 = await window.fileToBase64(resumeFile);
+            
+            // 创建AbortController用于超时控制
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 2分钟超时
+            
+            try {
+                const response = await fetch(API_CONFIG.endpoints.resume, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    },
+                    body: JSON.stringify({
+                        fileName: resumeFile.name,
+                        fileBase64,
+                        jd: jobDescription
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API请求失败: ${response.status} ${response.statusText}\n${errorText}`);
+                }
+                
+                const result = await response.json();
+                return result; // 保持 { success, data, debug_url? } 结构
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                if (fetchError.name === 'AbortError') {
+                    throw new Error('请求超时，请检查网络连接');
+                }
+                throw fetchError;
+            }
+        }, 3, 2000); // 最多重试3次，间隔2秒
+        
     } catch (error) {
         console.error('简历分析API调用失败:', error);
         throw error;
@@ -54,23 +81,49 @@ async function callResumeAnalysisAPI(resumeFile, jobDescription) {
 async function callInterviewAnalysisAPI(transcriptFile, intervieweeInfo, recordingLink = '') {
     try {
         checkFileSizeLimit(transcriptFile);
-        const fileBase64 = await window.fileToBase64(transcriptFile);
-        const response = await fetch(API_CONFIG.endpoints.interview, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fileName: transcriptFile.name,
-                fileBase64,
-                name: intervieweeInfo,
-                recordingUrl: recordingLink || ''
-            })
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API请求失败: ${response.status} ${response.statusText}\n${errorText}`);
-        }
-        const result = await response.json();
-        return result; // 保持 { success, data, debug_url? } 结构
+        
+        // 使用重试机制
+        return await retryAPICall(async () => {
+            const fileBase64 = await window.fileToBase64(transcriptFile);
+            
+            // 创建AbortController用于超时控制
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000); // 2分钟超时
+            
+            try {
+                const response = await fetch(API_CONFIG.endpoints.interview, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    },
+                    body: JSON.stringify({
+                        fileName: transcriptFile.name,
+                        fileBase64,
+                        name: intervieweeInfo,
+                        recordingUrl: recordingLink || ''
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API请求失败: ${response.status} ${response.statusText}\n${errorText}`);
+                }
+                
+                const result = await response.json();
+                return result; // 保持 { success, data, debug_url? } 结构
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                if (fetchError.name === 'AbortError') {
+                    throw new Error('请求超时，请检查网络连接');
+                }
+                throw fetchError;
+            }
+        }, 3, 2000); // 最多重试3次，间隔2秒
+        
     } catch (error) {
         console.error('面试分析API调用失败:', error);
         throw error;
@@ -93,7 +146,13 @@ async function testAPIConnection() {
 }
 
 // 处理API错误
-function handleAPIError(error) {
+function handleAPIError(error, context = {}) {
+    // 使用全局错误处理器
+    if (window.ErrorHandler) {
+        return window.ErrorHandler.handleAPIError(error, context);
+    }
+    
+    // 降级处理（如果全局错误处理器不可用）
     let errorMessage = '服务暂时不可用，请稍后重试';
     
     if (error.message.includes('401')) {
@@ -108,6 +167,8 @@ function handleAPIError(error) {
         errorMessage = '服务器内部错误，请联系技术支持';
     } else if (error.message.includes('network')) {
         errorMessage = '网络连接失败，请检查网络设置';
+    } else if (error.message.includes('超时')) {
+        errorMessage = '请求超时，请检查网络连接后重试';
     }
     
     return errorMessage;
@@ -179,18 +240,54 @@ async function retryAPICall(apiFunction, maxRetries = 3, delay = 1000) {
 
 // 检查文件大小限制
 function checkFileSizeLimit(file, maxSizeMB = 500) {
-    const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > maxSizeMB) {
-        throw new Error(`文件大小超过限制。最大支持 ${maxSizeMB}MB，当前文件 ${fileSizeMB.toFixed(2)}MB`);
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+        const error = new Error(`文件大小超过限制（${maxSizeMB}MB），当前文件大小：${(file.size / 1024 / 1024).toFixed(2)}MB`);
+        
+        // 使用全局错误处理器
+        if (window.ErrorHandler) {
+            window.ErrorHandler.handleFileError(error, {
+                filename: file.name,
+                filesize: file.size,
+                filetype: file.type,
+                maxSize: maxSizeBytes
+            });
+        }
+        
+        throw error;
     }
     return true;
+}
+
+// 判断是否是可重试的错误
+function isRetryableError(error) {
+    // 网络错误、超时错误、服务器错误（5xx）可以重试
+    if (error.name === 'AbortError') return false; // 超时不重试
+    if (error.message.includes('Failed to fetch')) return true; // 网络错误
+    if (error.message.includes('500') || error.message.includes('502') || 
+        error.message.includes('503') || error.message.includes('504')) return true; // 服务器错误
+    if (error.message.includes('timeout')) return true; // 超时错误
+    
+    return false; // 其他错误不重试
 }
 
 // 检查文件类型
 function checkFileType(file, allowedTypes) {
     const fileExtension = file.name.split('.').pop().toLowerCase();
     if (!allowedTypes.includes(fileExtension)) {
-        throw new Error(`不支持的文件格式。请上传 ${allowedTypes.join(', ').toUpperCase()} 格式的文件`);
+        const error = new Error(`不支持的文件格式。请上传 ${allowedTypes.join(', ').toUpperCase()} 格式的文件`);
+        
+        // 使用全局错误处理器
+        if (window.ErrorHandler) {
+            window.ErrorHandler.handleFileError(error, {
+                filename: file.name,
+                filesize: file.size,
+                filetype: file.type,
+                allowedTypes: allowedTypes
+            });
+        }
+        
+        throw error;
     }
     return true;
 }

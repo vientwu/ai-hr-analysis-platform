@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - AI智能招聘分析系统</title>
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net; frame-src 'none'; object-src 'none'; base-uri 'self';"
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Supabase JS -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .auth-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .auth-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .auth-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .auth-subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-input.error {
+            border-color: #e74c3c;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .success-message {
+            color: #27ae60;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .auth-button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .auth-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .auth-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .auth-links {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .auth-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .auth-link:hover {
+            color: #764ba2;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .checkbox-input {
+            display: none;
+        }
+
+        .checkbox-checkmark {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #e1e5e9;
+            border-radius: 4px;
+            margin-right: 10px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-input:checked + .checkbox-checkmark {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+
+        .checkbox-input:checked + .checkbox-checkmark::after {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 2px;
+            width: 4px;
+            height: 8px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .checkbox-label {
+            user-select: none;
+        }
+
+        .divider {
+            margin: 30px 0;
+            position: relative;
+            text-align: center;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e1e5e9;
+        }
+
+        .divider span {
+            background: white;
+            padding: 0 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tab-container {
+            display: flex;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 4px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #666;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 480px) {
+            .auth-card {
+                padding: 30px 20px;
+                margin: 10px;
+            }
+            
+            .auth-title {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo">AI</div>
+            <h1 class="auth-title">欢迎回来</h1>
+            <p class="auth-subtitle">登录您的AI招聘分析账户</p>
+
+            <div class="tab-container">
+                <button class="tab-button active" onclick="switchTab('login')">登录</button>
+                <button class="tab-button" onclick="switchTab('register')">注册</button>
+            </div>
+
+            <!-- 登录表单 -->
+            <div id="login-tab" class="tab-content active">
+                <form id="login-form">
+                    <div class="form-group">
+                        <label class="form-label" for="login-email">邮箱地址</label>
+                        <input type="email" id="login-email" class="form-input" placeholder="请输入您的邮箱" required>
+                        <div class="error-message" id="login-email-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="login-password">密码</label>
+                        <input type="password" id="login-password" class="form-input" placeholder="请输入您的密码" required>
+                        <div class="error-message" id="login-password-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="remember-me" class="checkbox-input" checked>
+                            <span class="checkbox-checkmark"></span>
+                            <span class="checkbox-label">记住我的登录状态</span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="auth-button" id="login-button">
+                        <span class="loading-spinner" id="login-spinner"></span>
+                        登录
+                    </button>
+
+                    <div class="error-message" id="login-error"></div>
+                    <div class="success-message" id="login-success"></div>
+                </form>
+
+                <div class="auth-links">
+                    <a href="#" class="auth-link" onclick="showForgotPassword()">忘记密码？</a>
+                    <a href="index.html" class="auth-link">返回首页</a>
+                </div>
+            </div>
+
+            <!-- 注册表单 -->
+            <div id="register-tab" class="tab-content">
+                <form id="register-form">
+                    <div class="form-group">
+                        <label class="form-label" for="register-name">姓名</label>
+                        <input type="text" id="register-name" class="form-input" placeholder="请输入您的姓名" required>
+                        <div class="error-message" id="register-name-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="register-email">邮箱地址</label>
+                        <input type="email" id="register-email" class="form-input" placeholder="请输入您的邮箱" required>
+                        <div class="error-message" id="register-email-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="register-password">密码</label>
+                        <input type="password" id="register-password" class="form-input" placeholder="请输入密码（至少6位）" required>
+                        <div class="error-message" id="register-password-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="register-confirm">确认密码</label>
+                        <input type="password" id="register-confirm" class="form-input" placeholder="请再次输入密码" required>
+                        <div class="error-message" id="register-confirm-error"></div>
+                    </div>
+
+                    <button type="submit" class="auth-button" id="register-button">
+                        <span class="loading-spinner" id="register-spinner"></span>
+                        注册
+                    </button>
+
+                    <div class="error-message" id="register-error"></div>
+                    <div class="success-message" id="register-success"></div>
+                </form>
+            </div>
+
+            <!-- 忘记密码表单 -->
+            <div id="forgot-password-tab" class="tab-content">
+                <form id="forgot-password-form">
+                    <div class="form-group">
+                        <label class="form-label" for="forgot-email">邮箱地址</label>
+                        <input type="email" id="forgot-email" class="form-input" placeholder="请输入您的邮箱" required>
+                        <div class="error-message" id="forgot-email-error"></div>
+                    </div>
+
+                    <button type="submit" class="auth-button" id="forgot-button">
+                        <span class="loading-spinner" id="forgot-spinner"></span>
+                        发送重置邮件
+                    </button>
+
+                    <div class="error-message" id="forgot-error"></div>
+                    <div class="success-message" id="forgot-success"></div>
+                </form>
+
+                <div class="auth-links">
+                    <a href="#" class="auth-link" onclick="switchTab('login')">返回登录</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/supabase.js"></script>
+    <script type="module">
+        import { auth } from './js/auth.js';
+
+        // 切换标签页
+        window.switchTab = function(tab) {
+            // 隐藏所有标签内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 移除所有标签按钮的激活状态
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 显示选中的标签内容
+            if (tab === 'login') {
+                document.getElementById('login-tab').classList.add('active');
+                document.querySelector('.tab-button').classList.add('active');
+            } else if (tab === 'register') {
+                document.getElementById('register-tab').classList.add('active');
+                document.querySelectorAll('.tab-button')[1].classList.add('active');
+            }
+        };
+
+        // 显示忘记密码表单
+        window.showForgotPassword = function() {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById('forgot-password-tab').classList.add('active');
+        };
+
+        // 显示错误信息
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+
+        // 隐藏错误信息
+        function hideError(elementId) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'none';
+        }
+
+        // 显示成功信息
+        function showSuccess(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+
+        // 设置加载状态
+        function setLoading(buttonId, spinnerId, loading) {
+            const button = document.getElementById(buttonId);
+            const spinner = document.getElementById(spinnerId);
+            
+            button.disabled = loading;
+            spinner.style.display = loading ? 'inline-block' : 'none';
+        }
+
+        // 登录表单处理
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
+            
+            // 清除之前的错误信息
+            hideError('login-error');
+            hideError('login-email-error');
+            hideError('login-password-error');
+            
+            // 基本验证
+            if (!email || !password) {
+                showError('login-error', '请填写所有必填字段');
+                return;
+            }
+            
+            setLoading('login-button', 'login-spinner', true);
+            
+            try {
+                // 设置记住我选项
+                if (window.Auth && window.Auth.setRememberMe) {
+                    window.Auth.setRememberMe(rememberMe);
+                }
+                
+                const result = await auth.signIn(email, password);
+                
+                if (result.success) {
+                    showSuccess('login-success', result.message);
+                    // 延迟跳转，让用户看到成功信息
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                } else {
+                    showError('login-error', result.error || '登录失败，请重试');
+                }
+            } catch (error) {
+                showError('login-error', '网络错误，请检查您的连接');
+            } finally {
+                setLoading('login-button', 'login-spinner', false);
+            }
+        });
+
+        // 注册表单处理
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm').value;
+            
+            // 清除之前的错误信息
+            hideError('register-error');
+            hideError('register-name-error');
+            hideError('register-email-error');
+            hideError('register-password-error');
+            hideError('register-confirm-error');
+            
+            // 基本验证
+            if (!name || !email || !password || !confirmPassword) {
+                showError('register-error', '请填写所有必填字段');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError('register-password-error', '密码至少需要6位字符');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('register-confirm-error', '两次输入的密码不一致');
+                return;
+            }
+            
+            setLoading('register-button', 'register-spinner', true);
+            
+            try {
+                const result = await auth.signUp(email, password, name);
+                
+                if (result.success) {
+                    showSuccess('register-success', result.message);
+                    // 清空表单
+                    document.getElementById('register-form').reset();
+                } else {
+                    showError('register-error', result.error || '注册失败，请重试');
+                }
+            } catch (error) {
+                showError('register-error', '网络错误，请检查您的连接');
+            } finally {
+                setLoading('register-button', 'register-spinner', false);
+            }
+        });
+
+        // 忘记密码表单处理
+        document.getElementById('forgot-password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('forgot-email').value;
+            
+            // 清除之前的错误信息
+            hideError('forgot-error');
+            hideError('forgot-email-error');
+            
+            if (!email) {
+                showError('forgot-error', '请输入您的邮箱地址');
+                return;
+            }
+            
+            setLoading('forgot-button', 'forgot-spinner', true);
+            
+            try {
+                const result = await auth.resetPassword(email);
+                
+                if (result.success) {
+                    showSuccess('forgot-success', result.message);
+                    // 清空表单
+                    document.getElementById('forgot-password-form').reset();
+                } else {
+                    showError('forgot-error', result.error || '发送重置邮件失败，请重试');
+                }
+            } catch (error) {
+                showError('forgot-error', '网络错误，请检查您的连接');
+            } finally {
+                setLoading('forgot-button', 'forgot-spinner', false);
+            }
+        });
+
+        // 检查是否已登录
+        auth.addAuthListener((event, session, user) => {
+            if (event === 'SIGNED_IN' && user) {
+                // 如果已登录，跳转到主页
+                window.location.href = 'index.html';
+            }
+        });
+
+        // 页面加载时检查登录状态
+        if (auth.isAuthenticated()) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

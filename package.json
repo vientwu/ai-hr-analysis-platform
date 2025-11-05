@@ -8,7 +8,13 @@
     "dev": "npx http-server . -p 4321 -c-1",
     "build": "echo 'Build completed'",
     "start": "npx http-server . -p 4321",
-    "api:dev": "node dev-server.js"
+    "api:dev": "node dev-server.js",
+    "clean": "echo 'Cleaning build cache...'",
+    "pre-deploy:check": "node pre-deploy-check.js",
+    "deploy": "node scripts/deploy-automation.js",
+    "deploy:manual": "vercel --prod",
+    "post-deploy:test": "node scripts/post-deploy-validation.js",
+    "deploy:full": "npm run pre-deploy:check && npm run deploy && npm run post-deploy:test"
   },
   "keywords": [
     "AI",
@@ -24,7 +30,9 @@
     "vercel": "^48.6.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.78.0",
     "axios": "^1.6.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2"
   }
