@@ -11,11 +11,17 @@
     }
   ],
   "functions": {
+    "api/health/index.js": {
+      "maxDuration": 10,
+      "runtime": "nodejs22.x"
+    },
     "api/resume-analyze.js": {
-      "maxDuration": 30
+      "maxDuration": 60,
+      "runtime": "nodejs22.x"
     },
     "api/interview-analyze.js": {
-      "maxDuration": 30
+      "maxDuration": 60,
+      "runtime": "nodejs22.x"
     }
   }
 }

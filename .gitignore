@@ -41,5 +41,6 @@ Thumbs.db
 *.temp
 *.log
  
- # 本地 Vercel 构建日志/信息文件（中文文件名，不入库）
- vercel信息
+# 本地 Vercel 构建日志/信息文件（中文文件名，不入库）
+/vercel信息
+vercel信息
