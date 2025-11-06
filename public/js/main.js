@@ -1,5 +1,4 @@
 // 全局变量
-let currentLanguage = 'zh';
 let resumeFile = null;
 let interviewFile = null;
 // 缓存Markdown内容与调试链接，便于下载与查看
@@ -13,7 +12,10 @@ let isLoggedIn = false;
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupEventListeners();
-    updateLanguage();
+    // 初始化语言（优先使用 i18n.js）
+    if (window.i18n && typeof window.i18n.initializeLanguage === 'function') {
+        window.i18n.initializeLanguage();
+    }
     // 初始化 Supabase Auth
     if (window.Auth) {
         window.Auth.initialize();
@@ -544,7 +546,8 @@ async function analyzeResume() {
         showLoading();
         analyzeBtn.disabled = true;
         spinner.style.display = 'inline-block';
-        btnText.textContent = currentLanguage === 'zh' ? '分析中...' : 'Analyzing...';
+        const t = window.i18n?.t || (k => k);
+        btnText.textContent = t('analyzing');
         
         // 转换文件为Base64
         const resumeBase64 = await fileToBase64(resumeFile);
@@ -578,7 +581,8 @@ async function analyzeResume() {
         hideLoading();
         analyzeBtn.disabled = false;
         spinner.style.display = 'none';
-        btnText.textContent = currentLanguage === 'zh' ? '开始分析简历' : 'Start Resume Analysis';
+        const t = window.i18n?.t || (k => k);
+        btnText.textContent = t('analyze-resume-btn');
     }
 }
 
@@ -604,7 +608,8 @@ async function analyzeInterview() {
         showLoading();
         analyzeBtn.disabled = true;
         spinner.style.display = 'inline-block';
-        btnText.textContent = currentLanguage === 'zh' ? '分析中...' : 'Analyzing...';
+        const t = window.i18n?.t || (k => k);
+        btnText.textContent = t('analyzing');
         
         // 转换文件为Base64
         const interviewBase64 = await fileToBase64(interviewFile);
@@ -639,7 +644,8 @@ async function analyzeInterview() {
         hideLoading();
         analyzeBtn.disabled = false;
         spinner.style.display = 'none';
-        btnText.textContent = currentLanguage === 'zh' ? '开始分析面试' : 'Start Interview Analysis';
+        const t = window.i18n?.t || (k => k);
+        btnText.textContent = t('analyze-interview-btn');
     }
 }
 
@@ -1004,26 +1010,4 @@ function extractMarkdownFromResult(result) {
     return String(result);
 }
 
-// 简单语言切换（基于 data-zh / data-en 文本）
-function updateLanguage() {
-    const toEN = currentLanguage === 'en';
-    document.querySelectorAll('[data-zh]').forEach(el => {
-        const zh = el.getAttribute('data-zh');
-        const en = el.getAttribute('data-en');
-        el.textContent = toEN ? (en || zh) : zh;
-    });
-    // 更新占位符
-    document.querySelectorAll('[data-zh-placeholder]').forEach(el => {
-        const zh = el.getAttribute('data-zh-placeholder');
-        const en = el.getAttribute('data-en-placeholder');
-        el.setAttribute('placeholder', toEN ? (en || zh) : zh);
-    });
-    // 更新语言按钮文字
-    const langText = document.getElementById('lang-text');
-    if (langText) langText.textContent = toEN ? 'ZH' : 'EN';
-}
-
-function toggleLanguage() {
-    currentLanguage = currentLanguage === 'zh' ? 'en' : 'zh';
-    updateLanguage();
-}
+// 语言相关逻辑由 public/js/i18n.js 负责，这里不再重复定义
