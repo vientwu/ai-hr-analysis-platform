@@ -4,19 +4,19 @@
   "functions": {
     "api/health.js": {
       "maxDuration": 10,
-      "runtime": "nodejs22.x"
+      "runtime": "nodejs20.x"
     },
     "api/status.js": {
       "maxDuration": 10,
-      "runtime": "nodejs22.x"
+      "runtime": "nodejs20.x"
     },
     "api/resume-analyze.js": {
       "maxDuration": 60,
-      "runtime": "nodejs22.x"
+      "runtime": "nodejs20.x"
     },
     "api/interview-analyze.js": {
       "maxDuration": 60,
-      "runtime": "nodejs22.x"
+      "runtime": "nodejs20.x"
     }
   }
 }
