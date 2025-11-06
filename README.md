@@ -227,3 +227,4 @@ Welcome to submit Issues and Pull Requests to improve the project.
 **开发完成时间**: 2024年12月
 **版本**: v1.0.0
 **状态**: 生产就绪 ✅
+chore: trigger Vercel production build after setting Output Directory=public ($(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') )
