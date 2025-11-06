@@ -6,6 +6,10 @@
       "maxDuration": 10,
       "runtime": "nodejs22.x"
     },
+    "api/status.js": {
+      "maxDuration": 10,
+      "runtime": "nodejs22.x"
+    },
     "api/resume-analyze.js": {
       "maxDuration": 60,
       "runtime": "nodejs22.x"
