@@ -1,5 +1,4 @@
-// Health check endpoint for Vercel Serverless Functions
-// Unified default export style to match other API routes
+// Health check endpoint for Vercel Serverless Functions (file route)
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
