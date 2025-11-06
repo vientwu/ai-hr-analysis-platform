@@ -5,6 +5,9 @@
     { "src": "styles/**", "use": "@vercel/static" },
     { "src": "js/**", "use": "@vercel/static" }
   ],
+  "routes": [
+    { "src": "/api/health", "methods": ["GET"], "dest": "/api/resume-analyze" }
+  ],
 
   "functions": {
     "api/health.js": {
