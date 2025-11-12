@@ -14,18 +14,35 @@ const API_CONFIG = {
 };
 
 function getCozePAT() {
-  try { return (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem('COZE_PAT') || '' : ''; } catch { return ''; }
+  try {
+    const lsPat = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem('COZE_PAT') || '' : '';
+    const injected = (typeof window !== 'undefined') ? (window.__COZE_CONFIG || {}) : {};
+    return lsPat || injected.pat || '';
+  } catch { return ''; }
 }
 function getWorkflowIds() {
   const resumeDefault = '7513777402993016867';
   const interviewDefault = '7514884191588745254';
   try {
     const ls = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage : null;
+    const injected = (typeof window !== 'undefined') ? (window.__COZE_CONFIG || {}) : {};
     return {
-      resume: ls ? (ls.getItem('COZE_RESUME_WORKFLOW_ID') || resumeDefault) : resumeDefault,
-      interview: ls ? (ls.getItem('COZE_INTERVIEW_WORKFLOW_ID') || interviewDefault) : interviewDefault,
+      resume: (ls && ls.getItem('COZE_RESUME_WORKFLOW_ID')) || injected.resumeWorkflowId || resumeDefault,
+      interview: (ls && ls.getItem('COZE_INTERVIEW_WORKFLOW_ID')) || injected.interviewWorkflowId || interviewDefault,
     };
   } catch { return { resume: resumeDefault, interview: interviewDefault }; }
+}
+
+async function ensureCozeConfigLoaded() {
+  if (typeof window === 'undefined') return;
+  if (window.__COZE_CONFIG && (window.__COZE_CONFIG.pat || window.__COZE_CONFIG.resumeWorkflowId)) return;
+  try {
+    const resp = await fetch('/api/coze-config');
+    if (resp.ok) {
+      const cfg = await resp.json();
+      window.__COZE_CONFIG = cfg;
+    }
+  } catch {}
 }
 
 async function uploadToCoze(file, pat) {
@@ -84,6 +101,7 @@ async function callResumeAnalysisAPI(resumeFile, jobDescription) {
     try {
         checkFileSizeLimit(resumeFile);
         if (!API_BASE) {
+            await ensureCozeConfigLoaded();
             const pat = getCozePAT();
             const fileId = await uploadToCoze(resumeFile, pat);
             const run = await runWorkflowResume(fileId, jobDescription, pat);
@@ -106,6 +124,7 @@ async function callInterviewAnalysisAPI(transcriptFile, intervieweeInfo, recordi
     try {
         checkFileSizeLimit(transcriptFile);
         if (!API_BASE) {
+            await ensureCozeConfigLoaded();
             const pat = getCozePAT();
             const fileId = await uploadToCoze(transcriptFile, pat);
             const run = await runWorkflowInterview(fileId, intervieweeInfo, recordingLink, pat);
