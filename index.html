@@ -60,8 +60,8 @@
                     <i class="fas fa-microphone"></i>
                 </div>
                 <h3 data-zh="面试分析" data-en="Interview Analysis">面试分析</h3>
-                <p data-zh="上传面试录音转文字PDF，获得面试过程分析和改进建议" data-en="Upload interview transcript PDF for process analysis and improvement suggestions">
-                    上传面试录音转文字PDF，获得面试过程分析和改进建议
+                <p data-zh="上传面试录音转文字文档（PDF/DOC/DOCX），获得面试过程分析和改进建议" data-en="Upload interview transcript document (PDF/DOC/DOCX) for process analysis and improvement suggestions">
+                    上传面试录音转文字文档（PDF/DOC/DOCX），获得面试过程分析和改进建议
                 </p>
                 <button class="btn-primary" onclick="showInterviewAnalysis()">
                     <span data-zh="开始分析" data-en="Start Analysis">开始分析</span>
@@ -137,87 +137,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- 面试分析模块 -->
-        <div class="analysis-module" id="interview-module" style="display: none;">
-            <div class="module-header">
-                <button class="back-btn" onclick="showHome()">
-                    <i class="fas fa-arrow-left"></i>
-                    <span data-zh="返回" data-en="Back">返回</span>
-                </button>
-                <h2 data-zh="面试分析" data-en="Interview Analysis">面试分析</h2>
-            </div>
-
-            <div class="upload-section">
-                <div class="upload-group">
-                    <label data-zh="面试者姓名" data-en="Interviewee Name">面试者姓名</label>
-                    <input 
-                        type="text" 
-                        id="interviewee-name" 
-                        placeholder="请输入面试者姓名"
-                        data-zh-placeholder="请输入面试者姓名"
-                        data-en-placeholder="Please enter interviewee name"
-                        maxlength="50"
-                    >
-                </div>
-
-                <div class="upload-group">
-                    <label data-zh="面试录音转文字PDF" data-en="Interview Transcript PDF">面试录音转文字PDF</label>
-                    <div class="file-upload" id="interview-upload">
-                        <div class="upload-area" onclick="document.getElementById('interview-file').click()">
-                            <i class="fas fa-file-pdf"></i>
-                            <p data-zh="点击或拖拽PDF文件到此处" data-en="Click or drag PDF file here">点击或拖拽PDF文件到此处</p>
-                            <small data-zh="仅支持 PDF 格式，最大 500MB" data-en="PDF format only, max 500MB">
-                                仅支持 PDF 格式，最大 500MB
-                            </small>
-                        </div>
-                        <input type="file" id="interview-file" accept=".pdf" style="display: none;">
-                        <div class="file-info" id="interview-file-info" style="display: none;"></div>
-                    </div>
-                </div>
-
-                <div class="upload-group">
-                    <label data-zh="录音URL (可选)" data-en="Recording URL (Optional)">录音URL (可选)</label>
-                    <input 
-                        type="url" 
-                        id="recording-url" 
-                        placeholder="https://example.com/recording.mp3"
-                        data-zh-placeholder="https://example.com/recording.mp3 (可选)"
-                        data-en-placeholder="https://example.com/recording.mp3 (optional)"
-                    >
-                    <small data-zh="如有原始录音链接，可提供以获得更准确的分析" data-en="If you have original recording link, provide it for more accurate analysis">
-                        如有原始录音链接，可提供以获得更准确的分析
-                    </small>
-                </div>
-
-                <button class="btn-analyze" id="analyze-interview-btn" onclick="analyzeInterview()" disabled>
-                    <i class="fas fa-cog fa-spin" style="display: none;"></i>
-                    <span data-zh="开始分析面试" data-en="Start Interview Analysis">开始分析面试</span>
-                </button>
-            </div>
-
-            <div class="result-section" id="interview-result" style="display: none;">
-                <h3 data-zh="分析结果" data-en="Analysis Result">分析结果</h3>
-                <div class="result-content markdown-content" id="interview-result-content"></div>
-                <div class="result-actions">
-                    <button class="btn-secondary" onclick="saveReportToSupabase('interview')">
-                        <i class="fas fa-save"></i>
-                        <span data-zh="保存到我的报告" data-en="Save to My Reports">保存到我的报告</span>
-                    </button>
-                    <button class="btn-secondary" onclick="downloadResultDocx('interview')">
-                        <i class="fas fa-file-word"></i>
-                        <span data-zh="下载 Word" data-en="Download Word">下载 Word</span>
-                    </button>
-                    <button class="btn-secondary" onclick="downloadResult('interview')">
-                        <i class="fas fa-download"></i>
-                        <span data-zh="下载 Markdown" data-en="Download Markdown">下载 Markdown</span>
-                    </button>
-                    <button class="btn-primary" onclick="resetInterviewAnalysis()">
-                        <span data-zh="重新分析" data-en="Analyze Again">重新分析</span>
-                    </button>
-                </div>
-            </div>
-        </div>
         
         <!-- 我的报告模块 -->
         <div class="analysis-module" id="my-reports-module" style="display: none;">
@@ -230,6 +149,25 @@
             </div>
             <div id="my-reports-content">
                 <p id="reports-notice" class="notice">请先登录后查看与保存报告。</p>
+                <!-- 筛选栏 -->
+                <div class="report-filters" id="report-filters-bar">
+                    <label class="filter-item">
+                        <input type="checkbox" id="filter-starred">
+                        <span>仅星标</span>
+                    </label>
+                    <label class="filter-item">
+                        <span>类型：</span>
+                        <select id="filter-type">
+                            <option value="all">全部</option>
+                            <option value="resume">简历分析</option>
+                            <option value="interview">面试分析</option>
+                        </select>
+                    </label>
+                    <button class="btn-secondary" id="filter-reset">
+                        <i class="fas fa-undo"></i>
+                        重置
+                    </button>
+                </div>
                 <div class="result-actions" style="margin-bottom:1rem">
                     <button class="btn-secondary" onclick="loadMyReports()">
                         <i class="fas fa-sync"></i>
@@ -338,13 +276,33 @@
         </div>
     </div>
 
+    <!-- 报告预览弹窗 -->
+    <div class="modal-overlay" id="report-modal" style="display:none;">
+        <div class="modal-panel report-panel">
+            <div class="modal-header">
+                <h3>报告预览</h3>
+                <button class="modal-close" id="report-close" aria-label="关闭">×</button>
+            </div>
+            <div class="modal-body">
+                <iframe id="report-frame" class="report-frame" src="" frameborder="0"></iframe>
+            </div>
+        </div>
+    </div>
+
     <!-- Markdown 渲染与安全过滤库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
     <!-- HTML to DOCX 转换库（浏览器端生成 Word 文档） -->
     <script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <script src="js/i18n.js"></script>
+    <script>
+      window.__SUPABASE_CONFIG = {
+        url: 'https://bcsjxvhzoufzqzupygyl.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjc2p4dmh6b3VmenF6dXB5Z3lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MDY3NDIsImV4cCI6MjA3NzI4Mjc0Mn0.hqW92LKNOVDN9QohpyhxdUNt5r1A4FbLzX8Vg-bihZc'
+      };
+    </script>
     <!-- Supabase JS（UMD 版本，提供 window.supabase 全局对象） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
     <script src="js/supabase.js"></script>
