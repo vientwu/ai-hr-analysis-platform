@@ -271,7 +271,6 @@
 
     <!-- 登录弹窗（重新设计） -->
     <div class="modal-overlay" id="login-modal" style="display:none;">
-        <button class="overlay-close" onclick="closeLoginModal()" aria-label="关闭">×</button>
         <div class="modal-panel login-panel">
             <div class="modal-header">
                 <h3>登录你的账号</h3>
@@ -305,7 +304,7 @@
                     <i class="fas fa-sign-in-alt"></i>
                     登录
                 </button>
-                <button class="btn-secondary" onclick="handleEmailSignup()">
+                <button class="btn-secondary" onclick="openRegisterModal()">
                     <i class="fas fa-user-plus"></i>
                     注册
                 </button>
@@ -316,6 +315,56 @@
             </div>
 
             <p class="modal-privacy privacy-tip">登录即表示你同意我们保存你的报告用于个人查看与下载；管理员可用于系统维护与审计。</p>
+        </div>
+    </div>
+
+    <!-- 注册弹窗 -->
+    <div class="modal-overlay" id="register-modal" style="display:none;">
+        <div class="modal-panel login-panel">
+            <div class="modal-header">
+                <h3>注册新账号</h3>
+                <button class="modal-close" onclick="closeRegisterModal()" aria-label="关闭">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <p class="modal-subtitle">填写邮箱与密码完成注册</p>
+
+            <div id="register-error" class="error-state" style="display:none;"></div>
+
+            <div class="form-group">
+                <label for="register-email">邮箱</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="register-email" placeholder="you@example.com" autocomplete="username" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="register-password">密码</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="register-password" placeholder="不少于6位" autocomplete="new-password" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="register-password-confirm">确认密码</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="register-password-confirm" placeholder="再次输入" autocomplete="new-password" />
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="handleEmailSignupRegister()">
+                    <i class="fas fa-user-plus"></i>
+                    注册
+                </button>
+                <button class="btn-secondary" onclick="(function(){closeRegisterModal();openLoginModal();})()">
+                    <i class="fas fa-sign-in-alt"></i>
+                    返回登录
+                </button>
+            </div>
         </div>
     </div>
 

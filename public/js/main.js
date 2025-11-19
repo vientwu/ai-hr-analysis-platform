@@ -379,6 +379,18 @@ function closeResetModal() {
     document.getElementById('reset-modal').style.display = 'none';
 }
 
+function openRegisterModal() {
+    const modal = document.getElementById('register-modal');
+    if (modal) modal.style.display = 'flex';
+    const err = document.getElementById('register-error');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+}
+
+function closeRegisterModal() {
+    const modal = document.getElementById('register-modal');
+    if (modal) modal.style.display = 'none';
+}
+
 function openReportModal(reportId, isLocalDemo = false) {
     try {
         const src = `report.html?report_id=${encodeURIComponent(reportId)}`;
@@ -555,6 +567,41 @@ async function handleEmailSignup() {
     } catch (error) {
         console.error('Signup error:', error);
         showLoginError('注册失败，请稍后重试');
+    }
+}
+
+function showRegisterError(message) {
+    const errorDiv = document.getElementById('register-error');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+async function handleEmailSignupRegister() {
+    const email = document.getElementById('register-email')?.value?.trim();
+    const password = document.getElementById('register-password')?.value || '';
+    const confirm = document.getElementById('register-password-confirm')?.value || '';
+    if (!email || !password || !confirm) { showRegisterError('请填写邮箱与两次密码'); return; }
+    if (!isValidEmail(email)) { showRegisterError('请输入有效的邮箱地址'); return; }
+    if (password.length < 6) { showRegisterError('密码至少需要6位'); return; }
+    if (password !== confirm) { showRegisterError('两次输入的密码不一致'); return; }
+    try {
+        if (window.Auth) {
+            const result = await window.Auth.signUp(email, password);
+            if (result.error) {
+                showRegisterError(result.error.message || '注册失败');
+            } else {
+                closeRegisterModal();
+                showToast('注册成功！请检查邮箱验证链接。', 'success');
+                openLoginModal();
+            }
+        } else {
+            showRegisterError('认证服务未初始化');
+        }
+    } catch (error) {
+        console.error('Signup error:', error);
+        showRegisterError('注册失败，请稍后重试');
     }
 }
 
