@@ -128,17 +128,15 @@
         if (promptStatus) promptStatus.innerText = '已加载（自定义）';
         return;
       }
-      const a = await fetchPrompt('简历信息分析提示词');
-      const b = await fetchPrompt('简历匹配度+面试分析+面试问题生成提示词');
-      const c = await fetchPrompt('岗位画像生成提示词');
-      prompts.resumeInfo = a || '';
-      prompts.matchInterview = b || '';
-      prompts.jdPortrait = c || '';
-      if (promptStatus) promptStatus.innerText = '已加载';
+      prompts.resumeInfo = '';
+      prompts.matchInterview = '';
+      prompts.jdPortrait = '';
+      if (promptStatus) promptStatus.innerText = '未设置';
     } catch {
       if (promptStatus) promptStatus.innerText = '加载失败';
     }
   };
+  try { window.loadPrompts = loadPrompts; } catch {}
 
   const openSettings = async () => {
     if (!settingsModal || !providerSelect || !keyInput || !modelSelect || !customModelInput) {
@@ -183,6 +181,7 @@
       }
     } catch {}
   };
+  try { window.openSettings = openSettings; } catch {}
 
   const closeSettings = () => { settingsModal.style.display = 'none'; };
 
@@ -203,6 +202,9 @@
       matchInterview: promptMatchInput.value
     };
     await setUserKey(userSettings);
+    prompts.resumeInfo = userSettings.prompts.resumeInfo || prompts.resumeInfo;
+    prompts.jdPortrait = userSettings.prompts.jdPortrait || prompts.jdPortrait;
+    prompts.matchInterview = userSettings.prompts.matchInterview || prompts.matchInterview;
     closeSettings();
     showToast('已保存设置');
   });
@@ -681,15 +683,19 @@
   });
 
   const composeThreeStepReport = async (jd, validTexts, provider, useKey, useModel) => {
+    const sys = '严格按照提示词执行，基于证据，不要编造；Markdown结构清晰。';
     const resumePayload = [
+      { role: 'system', content: sys },
       { role: 'user', content: `${prompts.resumeInfo}\n\n简历集合:\n${validTexts.map((t,i)=>`【候选人${i+1}】\n${t}`).join('\n\n')}` }
     ];
     const { md: resumeInfo } = await callLLM(provider, resumePayload, useKey, useModel, 12000);
     const jdPayload = [
+      { role: 'system', content: sys },
       { role: 'user', content: `${prompts.jdPortrait}\n\nJD:\n${jd}` }
     ];
     const { md: jdPortrait } = await callLLM(provider, jdPayload, useKey, useModel, 12000);
     const matchPayload = [
+      { role: 'system', content: sys },
       { role: 'user', content: `${prompts.matchInterview}\n\n${resumeInfo}\n\n${jdPortrait}` }
     ];
     const { md: finalMd } = await callLLM(provider, matchPayload, useKey, useModel, 16000);
@@ -707,6 +713,8 @@
       const provider = (saved && saved.provider) ? saved.provider : 'openrouter';
       const useModel = (saved && saved.customModel) ? saved.customModel : (saved && saved.model) ? saved.model : defaultModel;
       const useKey = saved && saved.keys && saved.keys[provider] ? saved.keys[provider] : (saved && saved.apiKey ? saved.apiKey : '');
+      if (!useKey) { hideLoading(); showToast('请在设置中填写并保存 API Key'); try { openSettings(); } catch {} return; }
+      if (!prompts.resumeInfo || !prompts.jdPortrait || !prompts.matchInterview) { hideLoading(); showToast('请在设置中填写三类提示词'); try { openSettings(); } catch {} return; }
       const { finalMd } = await composeThreeStepReport(jd, validTexts, provider, useKey, useModel);
       if (String(finalMd || '').trim()) {
         resumeMarkdown = fixMarkdownTables(String(finalMd || '').trim());

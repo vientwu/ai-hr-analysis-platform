@@ -63,13 +63,10 @@
         if (promptStatus) promptStatus.innerText = '已加载（自定义）';
         return;
       }
-      const a = await fetchPrompt('简历信息分析提示词');
-      const b = await fetchPrompt('简历匹配度+面试分析+面试问题生成提示词');
-      const c = await fetchPrompt('岗位画像生成提示词');
-      if (promptResumeInput) promptResumeInput.value = a || '';
-      if (promptMatchInput) promptMatchInput.value = b || '';
-      if (promptJdInput) promptJdInput.value = c || '';
-      if (promptStatus) promptStatus.innerText = '已加载';
+      if (promptResumeInput) promptResumeInput.value = '';
+      if (promptMatchInput) promptMatchInput.value = '';
+      if (promptJdInput) promptJdInput.value = '';
+      if (promptStatus) promptStatus.innerText = '未设置';
     } catch { if (promptStatus) promptStatus.innerText = '加载失败'; }
   };
 
@@ -101,7 +98,6 @@
   };
 
   const openSettings = async () => {
-    // 先展示弹窗，再异步加载数据，避免阻塞导致“看起来没打开”
     if (modal) modal.style.display = 'block';
     const saved = await getUserKey();
     let userSettings = saved || { provider: 'openrouter', apiKey: '', keys: { openrouter: '', openai: '', anthropic: '', deepseek: '' }, model: defaultModel, customModel: '', prompts: { resumeInfo: '', matchInterview: '', jdPortrait: '' } };
@@ -113,8 +109,10 @@
     if (modelSelect) modelSelect.value = userSettings.model || defaultModel;
     if (customModelInput) customModelInput.value = userSettings.customModel || '';
     // 异步加载提示词
-    loadPrompts();
+    try { if (typeof window.loadPrompts === 'function') window.loadPrompts(); } catch {}
   };
+
+  try { window.openSettings = openSettings; } catch {}
 
   const closeSettings = () => { if (modal) modal.style.display = 'none'; };
 
@@ -148,13 +146,22 @@
     };
     await setUserKey(userSettings);
     closeSettings();
+    try { if (typeof window.loadPrompts === 'function') window.loadPrompts(); } catch {}
   };
 
   if (openBtn) openBtn.addEventListener('click', openSettings);
   if (closeBtn) closeBtn.addEventListener('click', closeSettings);
   if (saveBtn) saveBtn.addEventListener('click', saveSettings);
   if (providerSelect) providerSelect.addEventListener('change', refreshModels);
-  if (loadDefaultPromptsBtn) loadDefaultPromptsBtn.addEventListener('click', loadPrompts);
+  if (loadDefaultPromptsBtn) loadDefaultPromptsBtn.addEventListener('click', async () => {
+    const a = await fetchPrompt('简历信息分析提示词');
+    const b = await fetchPrompt('简历匹配度+面试分析+面试问题生成提示词');
+    const c = await fetchPrompt('岗位画像生成提示词');
+    if (promptResumeInput) promptResumeInput.value = a || '';
+    if (promptMatchInput) promptMatchInput.value = b || '';
+    if (promptJdInput) promptJdInput.value = c || '';
+    if (promptStatus) promptStatus.innerText = (a || b || c) ? '已加载（默认）' : '默认未找到';
+  });
   if (testConnBtn) testConnBtn.addEventListener('click', testConnectivity);
   if (modelSelect) refreshModels();
   try { window.openSettings = openSettings; } catch {}
