@@ -1,5 +1,6 @@
 // Vercel Serverless Function: 简历分析
 // 接收 { fileBase64, fileName, jd }，将文件上传到 Coze，并触发工作流
+import { STATIC_SECRETS } from '../secrets.js';
 
 // 统一设置 CORS，支持从 4321 端口页面跨域请求到 3000 端口函数
 function setCORSHeaders(res) {
@@ -34,8 +35,9 @@ export default async function handler(req, res) {
     }
 
     const { fileBase64, fileName = 'resume.pdf', jd = '' } = payload;
-    if (!process.env.COZE_PAT) {
-      return res.status(500).json({ error: 'COZE_PAT is not set in environment variables' });
+    const COZE_PAT = process.env.COZE_PAT || STATIC_SECRETS.COZE_PAT;
+    if (!COZE_PAT) {
+      return res.status(500).json({ error: 'COZE_PAT is not set (env or STATIC_SECRETS.COZE_PAT)' });
     }
     if (!fileBase64) {
       return res.status(400).json({ error: 'fileBase64 is required' });
@@ -48,7 +50,7 @@ export default async function handler(req, res) {
 
     const uploadResp = await fetch('https://api.coze.cn/v1/files/upload', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.COZE_PAT}` },
+      headers: { Authorization: `Bearer ${COZE_PAT}` },
       body: formData,
     });
 
@@ -63,7 +65,8 @@ export default async function handler(req, res) {
     }
 
     // 触发工作流（简历分析）
-    const resumeWorkflowId = process.env.COZE_RESUME_WORKFLOW_ID || '7513777402993016867';
+    const resumeWorkflowId =
+      process.env.COZE_RESUME_WORKFLOW_ID || STATIC_SECRETS.COZE_RESUME_WORKFLOW_ID || '7513777402993016867';
     const requestData = {
       workflow_id: resumeWorkflowId,
       parameters: {
@@ -75,7 +78,7 @@ export default async function handler(req, res) {
     const runResp = await fetch('https://api.coze.cn/v1/workflow/run', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.COZE_PAT}`,
+        Authorization: `Bearer ${COZE_PAT}`,
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },

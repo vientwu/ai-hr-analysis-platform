@@ -68,8 +68,15 @@ async function runWorkflowInterview(fileId, name, recordingUrl, pat) {
   return await resp.json();
 }
 function base64ToBlob(base64) {
-  const buffer = typeof Buffer !== 'undefined' ? Buffer.from(base64, 'base64') : atob(base64);
-  try { return new Blob([buffer]); } catch { return new Blob([new Uint8Array(buffer)]); }
+  if (typeof Buffer !== 'undefined') {
+    const buffer = Buffer.from(base64, 'base64');
+    return new Blob([buffer], { type: 'application/octet-stream' });
+  }
+  const byteString = atob(base64);
+  const len = byteString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) { bytes[i] = byteString.charCodeAt(i); }
+  return new Blob([bytes], { type: 'application/octet-stream' });
 }
 
 // 调用简历分析（线上直连 Coze；本地联调走后端）
@@ -89,7 +96,10 @@ async function callResumeAnalysisAPI(resumeFile, jobDescription) {
             if (!response.ok) { throw new Error(`API请求失败: ${response.status} ${response.statusText}`); }
             return await response.json();
         }
-    } catch (error) { console.error('简历分析API调用失败:', error); throw error; }
+    } catch (error) {
+        console.error('简历分析API调用失败:', error);
+        throw error;
+    }
 }
 
 // 调用面试分析（线上直连 Coze；本地联调走后端）
@@ -109,7 +119,10 @@ async function callInterviewAnalysisAPI(transcriptFile, intervieweeInfo, recordi
             if (!response.ok) { throw new Error(`API请求失败: ${response.status} ${response.statusText}`); }
             return await response.json();
         }
-    } catch (error) { console.error('面试分析API调用失败:', error); throw error; }
+    } catch (error) {
+        console.error('面试分析API调用失败:', error);
+        throw error;
+    }
 }
 
 // 测试API连接（后端函数）
@@ -174,4 +187,15 @@ function checkFileType(file, allowedTypes) {
     return true;
 }
 
-window.API = { callResumeAnalysisAPI, callInterviewAnalysisAPI, testAPIConnection, handleAPIError, validateAPIResponse, formatAPIResponse, retryAPICall, checkFileSizeLimit, checkFileType };
+// 导出API函数供全局使用
+window.API = {
+    callResumeAnalysisAPI,
+    callInterviewAnalysisAPI,
+    testAPIConnection,
+    handleAPIError,
+    validateAPIResponse,
+    formatAPIResponse,
+    retryAPICall,
+    checkFileSizeLimit,
+    checkFileType
+};
