@@ -28,11 +28,7 @@
     { v: 'deepseek/deepseek-r1', t: 'DeepSeek R1' }
   ];
 
-  const DEFAULT_PROMPTS = {
-    '简历信息分析提示词': '你将读取中文或英文简历文本，提取候选人姓名、联系方式、所在地、教育经历（学校、专业、学历、时间）、工作经历（公司、岗位、时间、职责、项目）、技能标签（编程语言、框架、工具、领域）、证书与奖项、个人亮点。输出为结构化 Markdown，使用清晰的标题与列表，保持原文关键信息，不编造。',
-    '简历匹配度+面试分析+面试问题生成提示词': '输入为候选人简历与岗位 JD。计算匹配度（0-100），给出依据（技能、经验、行业、教育），输出风险点与补足建议，生成 8-12 个面试问题（基础/项目/行为/挑战/反思），同时提供候选人优势与可能的关切。所有结论基于文本证据，不臆测。Markdown 分段输出。',
-    '岗位画像生成提示词': '读取岗位 JD 文本，提炼岗位画像：核心职责、必要技能、加分项、经验年限、学历与证书、行业与领域、通用素质、评估维度与权重、典型面试题。输出为 Markdown，包含清晰小节与要点列表，可直接用于与简历比对。'
-  };
+  const DEFAULT_PROMPTS = {};
 
   const getUserKey = async () => {
     const user = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
@@ -50,7 +46,7 @@
       const r = await fetch(encodeURI('/' + p), { cache: 'no-store' });
       if (r.ok) return await r.text();
     } catch {}
-    return DEFAULT_PROMPTS[p] || '';
+    return '';
   };
 
   const loadPrompts = async () => {
@@ -153,14 +149,11 @@
   if (closeBtn) closeBtn.addEventListener('click', closeSettings);
   if (saveBtn) saveBtn.addEventListener('click', saveSettings);
   if (providerSelect) providerSelect.addEventListener('change', refreshModels);
-  if (loadDefaultPromptsBtn) loadDefaultPromptsBtn.addEventListener('click', async () => {
-    const a = await fetchPrompt('简历信息分析提示词');
-    const b = await fetchPrompt('简历匹配度+面试分析+面试问题生成提示词');
-    const c = await fetchPrompt('岗位画像生成提示词');
-    if (promptResumeInput) promptResumeInput.value = a || '';
-    if (promptMatchInput) promptMatchInput.value = b || '';
-    if (promptJdInput) promptJdInput.value = c || '';
-    if (promptStatus) promptStatus.innerText = (a || b || c) ? '已加载（默认）' : '默认未找到';
+  if (loadDefaultPromptsBtn) loadDefaultPromptsBtn.addEventListener('click', () => {
+    if (promptResumeInput) promptResumeInput.value = '';
+    if (promptMatchInput) promptMatchInput.value = '';
+    if (promptJdInput) promptJdInput.value = '';
+    if (promptStatus) promptStatus.innerText = '未设置';
   });
   if (testConnBtn) testConnBtn.addEventListener('click', testConnectivity);
   if (modelSelect) refreshModels();

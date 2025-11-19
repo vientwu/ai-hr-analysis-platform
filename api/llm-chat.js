@@ -21,11 +21,14 @@ export default async function handler(req, res) {
 
     if (provider === 'openrouter') {
       if (!key) return res.status(500).json({ error: 'OpenRouter API key not provided' });
+      const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL || 'localhost:4321';
+      const scheme = host.startsWith('localhost') ? 'http' : 'https';
+      const referer = `${scheme}://${host}/`;
       const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${key}`,
-          'HTTP-Referer': 'http://localhost:4321/',
+          'HTTP-Referer': referer,
           'X-Title': 'AI Recruitment Analyzer',
           'Content-Type': 'application/json',
         },

@@ -104,18 +104,14 @@
     setButtonLoading(false);
   };
 
-  const DEFAULT_PROMPTS = {
-    '简历信息分析提示词': '你将读取中文或英文简历文本，提取候选人姓名、联系方式、所在地、教育经历、工作经历、技能标签、证书与奖项、个人亮点。输出结构化 Markdown，标题清晰、列表规范，不编造。',
-    '简历匹配度+面试分析+面试问题生成提示词': '输入为候选人简历与岗位 JD。计算匹配度（0-100），给出依据与风险点，提出补足建议，生成 8-12 个面试问题（基础/项目/行为），并总结优势与关切。严格基于文本证据。Markdown 分段输出。',
-    '岗位画像生成提示词': '读取岗位 JD，生成岗位画像：职责、必要技能、加分项、经验年限、学历证书、行业领域、通用素质、评估维度与权重、典型面试题。Markdown 输出，结构清晰。'
-  };
+  const DEFAULT_PROMPTS = {};
 
   const fetchPrompt = async (p) => {
     try {
       const r = await fetch(encodeURI('/' + p), { cache: 'no-store' });
       if (r.ok) return await r.text();
     } catch {}
-    return DEFAULT_PROMPTS[p] || '';
+    return '';
   };
 
   const loadPrompts = async () => {
@@ -211,14 +207,11 @@
 
   // 居中由 CSS 控制，无需窗口尺寸计算
 
-  if (loadDefaultPromptsBtn) loadDefaultPromptsBtn.addEventListener('click', async () => {
-    const a = await fetchPrompt('简历信息分析提示词');
-    const b = await fetchPrompt('简历匹配度+面试分析+面试问题生成提示词');
-    const c = await fetchPrompt('岗位画像生成提示词');
-    promptResumeInput.value = a || '';
-    promptMatchInput.value = b || '';
-    promptJdInput.value = c || '';
-    if (promptStatus) promptStatus.innerText = (a || b || c) ? '已加载' : '默认未找到';
+  if (loadDefaultPromptsBtn) loadDefaultPromptsBtn.addEventListener('click', () => {
+    promptResumeInput.value = '';
+    promptMatchInput.value = '';
+    promptJdInput.value = '';
+    if (promptStatus) promptStatus.innerText = '未设置';
   });
 
   const readTxt = (file) => new Promise((resolve, reject) => {
@@ -710,6 +703,11 @@
     showLoading('AI 正在分析...');
     try {
       const saved = await getUserKey();
+      if (saved && saved.prompts) {
+        prompts.resumeInfo = saved.prompts.resumeInfo || '';
+        prompts.jdPortrait = saved.prompts.jdPortrait || '';
+        prompts.matchInterview = saved.prompts.matchInterview || '';
+      }
       const provider = (saved && saved.provider) ? saved.provider : 'openrouter';
       const useModel = (saved && saved.customModel) ? saved.customModel : (saved && saved.model) ? saved.model : defaultModel;
       const useKey = saved && saved.keys && saved.keys[provider] ? saved.keys[provider] : (saved && saved.apiKey ? saved.apiKey : '');
