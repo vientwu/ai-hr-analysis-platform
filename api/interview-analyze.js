@@ -1,5 +1,6 @@
 // Vercel Serverless Function: 面试分析
 // 接收 { fileBase64, fileName, name, recordingUrl }，将文件上传到 Coze，并触发面试分析工作流
+import { STATIC_SECRETS } from '../secrets.js';
 
 function setCORSHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -31,8 +32,9 @@ export default async function handler(req, res) {
     }
 
     const { fileBase64, fileName = 'transcript.pdf', name = '', recordingUrl = '' } = payload;
-    if (!process.env.COZE_PAT) {
-      return res.status(500).json({ error: 'COZE_PAT is not set in environment variables' });
+    const COZE_PAT = process.env.COZE_PAT || STATIC_SECRETS.COZE_PAT;
+    if (!COZE_PAT) {
+      return res.status(500).json({ error: 'COZE_PAT is not set (env or STATIC_SECRETS.COZE_PAT)' });
     }
     if (!fileBase64) {
       return res.status(400).json({ error: 'fileBase64 is required' });
@@ -45,7 +47,7 @@ export default async function handler(req, res) {
 
     const uploadResp = await fetch('https://api.coze.cn/v1/files/upload', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.COZE_PAT}` },
+      headers: { Authorization: `Bearer ${COZE_PAT}` },
       body: formData,
     });
 
@@ -60,7 +62,8 @@ export default async function handler(req, res) {
     }
 
     // 触发工作流（面试分析）
-    const interviewWorkflowId = process.env.COZE_INTERVIEW_WORKFLOW_ID || '7514884191588745254';
+    const interviewWorkflowId =
+      process.env.COZE_INTERVIEW_WORKFLOW_ID || STATIC_SECRETS.COZE_INTERVIEW_WORKFLOW_ID || '7514884191588745254';
     const requestData = {
       workflow_id: interviewWorkflowId,
       parameters: {
@@ -73,7 +76,7 @@ export default async function handler(req, res) {
     const runResp = await fetch('https://api.coze.cn/v1/workflow/run', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.COZE_PAT}`,
+        Authorization: `Bearer ${COZE_PAT}`,
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },

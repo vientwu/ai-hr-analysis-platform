@@ -53,7 +53,10 @@ const translations = {
         'error-file-size': '文件大小超过限制',
         'success-analysis': '分析完成！',
         'error-analysis': '分析失败，请重试',
-        'report-downloaded': '报告已下载'
+        'report-downloaded': '报告已下载',
+        // 报告页
+        'download-markdown': '下载 Markdown',
+        'download-docx': '下载 Word'
     },
     
     en: {
@@ -109,7 +112,10 @@ const translations = {
         'error-file-size': 'File size exceeds limit',
         'success-analysis': 'Analysis completed!',
         'error-analysis': 'Analysis failed, please try again',
-        'report-downloaded': 'Report downloaded'
+        'report-downloaded': 'Report downloaded',
+        // Report page
+        'download-markdown': 'Download Markdown',
+        'download-docx': 'Download Word'
     }
 };
 

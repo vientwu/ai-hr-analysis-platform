@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>报告预览</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+</head>
+<body class="report-page">
+  <div class="container" style="padding: 1rem;">
+    <div class="report-page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+      <div>
+        <h2 id="report-title" style="margin:0;">报告</h2>
+        <div class="report-meta" style="color:#6b7280;font-size:0.9rem;">
+          <span id="report-type">类型</span>
+          <span style="margin:0 0.5rem;">|</span>
+          <span id="report-date">时间</span>
+          <span style="margin:0 0.5rem;">|</span>
+          <span id="report-summary">摘要</span>
+        </div>
+      </div>
+      <div class="report-toolbar" style="display:flex;gap:0.5rem;align-items:center;">
+        <div id="download-dropdown" class="dropdown">
+          <button id="download-dropdown-btn" class="btn-secondary">
+            <i class="fas fa-download"></i>
+            下载
+            <i class="fas fa-caret-down"></i>
+          </button>
+          <div id="download-dropdown-menu" class="dropdown-menu">
+            <button id="download-md-option" class="dropdown-item">下载 Markdown</button>
+            <button id="download-docx-option" class="dropdown-item">下载 Word</button>
+            <button id="download-pdf-option" class="dropdown-item">导出 PDF</button>
+          </div>
+        </div>
+        <button id="print-report" class="btn-secondary">打印</button>
+        <button id="copy-link" class="btn-secondary">复制链接</button>
+      </div>
+    </div>
+
+    <div id="report-content" class="result-content markdown-content" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <script>
+    window.__SUPABASE_CONFIG = {
+      url: 'https://bcsjxvhzoufzqzupygyl.supabase.co',
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjc2p4dmh6b3VmenF6dXB5Z3lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MDY3NDIsImV4cCI6MjA3NzI4Mjc0Mn0.hqW92LKNOVDN9QohpyhxdUNt5r1A4FbLzX8Vg-bihZc'
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/report.js"></script>
+</body>
+</html>
