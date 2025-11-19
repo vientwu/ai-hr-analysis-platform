@@ -22,7 +22,7 @@ export default async function handler(req, res) {
         try { resolve(JSON.parse(data || '{}')); } catch { resolve({}); }
       });
     });
-    const payload = {
+    const base = {
       user_id: body.user_id,
       title: body.title,
       report_type: body.report_type,
@@ -30,7 +30,13 @@ export default async function handler(req, res) {
       markdown_output: body.markdown_output,
       created_at: body.created_at || new Date().toISOString(),
     };
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/reports`, {
+    const full = {
+      ...base,
+      candidate_name: body.candidate_name ?? null,
+      job_title: body.job_title ?? null,
+      match_score: body.match_score ?? null,
+    };
+    let resp = await fetch(`${SUPABASE_URL}/rest/v1/reports`, {
       method: 'POST',
       headers: {
         Authorization: auth,
@@ -38,8 +44,20 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(full),
     });
+    if (!resp.ok) {
+      resp = await fetch(`${SUPABASE_URL}/rest/v1/reports`, {
+        method: 'POST',
+        headers: {
+          Authorization: auth,
+          apikey: SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(base),
+      });
+    }
     const text = await resp.text();
     let json = null; try { json = JSON.parse(text); } catch { json = { raw: text }; }
     if (!resp.ok) {

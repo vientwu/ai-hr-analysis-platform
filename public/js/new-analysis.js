@@ -619,10 +619,11 @@
       if (window.Auth && window.Auth.supabase) {
         const base = { user_id: user.id, title, report_type: 'resume', content: md, markdown_output: md, created_at: new Date().toISOString() };
         let payload = { ...base, candidate_name: summary.candidate_name || null, job_title: summary.job_title || null, match_score: summary.match_score };
-        let { error } = await window.Auth.supabase
+        const resp1 = await window.Auth.supabase
           .from('reports')
           .insert([payload]);
-        if (error && (String(error.code) === '42703' || /column .* does not exist/i.test(error.message || ''))) {
+        let error = resp1.error;
+        if (error) {
           const resp2 = await window.Auth.supabase
             .from('reports')
             .insert([base]);

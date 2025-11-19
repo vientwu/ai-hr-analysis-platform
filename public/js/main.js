@@ -748,24 +748,33 @@ async function saveReportToSupabase(type) {
                 showToast('用户未登录', 'error');
                 return;
             }
-            
-            const { data, error } = await window.Auth.supabase
+            const base = {
+                user_id: user.id,
+                title: title,
+                report_type: type,
+                content: markdown,
+                markdown_output: markdown,
+                created_at: new Date().toISOString()
+            };
+            const payload = {
+                ...base,
+                candidate_name: summary.candidate_name || null,
+                job_title: summary.job_title || null,
+                match_score: summary.match_score
+            };
+            const resp1 = await window.Auth.supabase
                 .from('reports')
-                .insert([
-                    {
-                        user_id: user.id,
-                        title: title,
-                        report_type: type,
-                        // 同步写入 content 与 markdown_output，保证读取逻辑一致
-                        content: markdown,
-                        markdown_output: markdown,
-                        created_at: new Date().toISOString()
-                    }
-                ]);
-            
+                .insert([payload]);
+            let error = resp1.error;
+            if (error) {
+                const resp2 = await window.Auth.supabase
+                    .from('reports')
+                    .insert([base]);
+                error = resp2.error;
+            }
             if (error) {
                 console.error('Save report error:', error);
-                showToast('保存报告失败：' + error.message, 'error');
+                showToast('保存报告失败：' + (error.message || '未知错误'), 'error');
             } else {
                 showToast('报告已保存到我的报告！', 'success');
             }
@@ -781,7 +790,6 @@ async function saveReportToSupabase(type) {
             try { items = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
             const id = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `demo-${Date.now()}`;
             const created_at = new Date().toISOString();
-            // 兼容字段：同时写入 content 与 markdown_output，便于前端回读
             const record = { id, user_id: user.id, title, type, report_type: type, content: markdown, markdown_output: markdown, created_at, candidate_name: summary.candidate_name || null, job_title: summary.job_title || null, match_score: summary.match_score };
             items.unshift(record);
             try { localStorage.setItem(key, JSON.stringify(items)); } catch {}
