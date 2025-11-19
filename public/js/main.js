@@ -385,6 +385,8 @@ function openReportModal(reportId, isLocalDemo = false) {
         const frame = document.getElementById('report-frame');
         const modal = document.getElementById('report-modal');
         if (!frame || !modal) { viewSavedReport(reportId, isLocalDemo); return; }
+        try { window.currentReportPreviewId = String(reportId); } catch {}
+        bindReportModalToolbarOnce();
         frame.src = src;
         modal.style.display = 'flex';
     } catch (err) {
@@ -397,6 +399,87 @@ function closeReportModal() {
     const frame = document.getElementById('report-frame');
     if (modal) modal.style.display = 'none';
     if (frame) frame.src = '';
+}
+
+function bindReportModalToolbarOnce() {
+    const ddBtn = document.getElementById('report-download-dropdown-btn');
+    const ddMenu = document.getElementById('report-download-dropdown-menu');
+    const ddRoot = document.getElementById('report-download-dropdown');
+    const mdBtn = document.getElementById('report-download-md');
+    const docxBtn = document.getElementById('report-download-docx');
+    const pdfBtn = document.getElementById('report-download-pdf');
+    const copyBtn = document.getElementById('report-copy-link');
+
+    if (ddBtn && ddMenu && ddRoot && !ddBtn.__bound) {
+        ddBtn.__bound = true;
+        ddBtn.addEventListener('click', () => { ddRoot.classList.toggle('open'); });
+        document.addEventListener('click', (e) => { if (!ddRoot.contains(e.target)) ddRoot.classList.remove('open'); });
+    }
+    const getIdAndTitle = async () => {
+        const id = String(window.currentReportPreviewId || '');
+        let title = '报告';
+        try {
+            const user = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+            if (user && window.Auth && window.Auth.supabase && id) {
+                const { data } = await window.Auth.supabase
+                    .from('reports')
+                    .select('title')
+                    .eq('id', id)
+                    .limit(1)
+                    .maybeSingle();
+                if (data && data.title) title = data.title;
+            }
+        } catch {}
+        return { id, title };
+    };
+    if (mdBtn && !mdBtn.__bound) {
+        mdBtn.__bound = true;
+        mdBtn.addEventListener('click', async () => {
+            const { id, title } = await getIdAndTitle();
+            if (!id) { showToast('未找到报告ID', 'error'); return; }
+            await downloadSavedMarkdownById(id, title);
+            if (ddRoot) ddRoot.classList.remove('open');
+        });
+    }
+    if (docxBtn && !docxBtn.__bound) {
+        docxBtn.__bound = true;
+        docxBtn.addEventListener('click', async () => {
+            const { id, title } = await getIdAndTitle();
+            if (!id) { showToast('未找到报告ID', 'error'); return; }
+            try { await downloadSavedDocxById(id, title); } catch { showToast('生成Word失败', 'error'); }
+            if (ddRoot) ddRoot.classList.remove('open');
+        });
+    }
+    if (pdfBtn && !pdfBtn.__bound) {
+        pdfBtn.__bound = true;
+        pdfBtn.addEventListener('click', async () => {
+            const { id, title } = await getIdAndTitle();
+            if (!id) { showToast('未找到报告ID', 'error'); return; }
+            try { await downloadSavedPdfById(id, title); } catch { window.print(); }
+            if (ddRoot) ddRoot.classList.remove('open');
+        });
+    }
+    if (copyBtn && !copyBtn.__bound) {
+        copyBtn.__bound = true;
+        copyBtn.addEventListener('click', async () => {
+            const id = String(window.currentReportPreviewId || '');
+            if (!id) { showToast('未找到报告ID', 'error'); return; }
+            const url = new URL('report.html', window.location.origin);
+            url.searchParams.set('report_id', id);
+            try { await navigator.clipboard.writeText(url.toString()); showToast('链接已复制', 'success'); }
+            catch {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = url.toString();
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    showToast('链接已复制', 'success');
+                } catch { showToast('复制失败，请手动复制地址栏链接', 'error'); }
+            }
+        });
+    }
 }
 
 // 认证相关函数

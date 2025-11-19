@@ -360,10 +360,25 @@
         <div class="modal-panel report-panel">
             <div class="modal-header">
                 <h3>报告预览</h3>
-                <button class="modal-close" id="report-close" aria-label="关闭">×</button>
+                <div class="modal-actions" style="display:flex;gap:0.5rem;align-items:center;">
+                  <div id="report-download-dropdown" class="dropdown">
+                    <button id="report-download-dropdown-btn" class="btn-secondary">
+                      <i class="fas fa-download"></i>
+                      下载
+                      <i class="fas fa-caret-down"></i>
+                    </button>
+                    <div id="report-download-dropdown-menu" class="dropdown-menu">
+                      <button id="report-download-md" class="dropdown-item">下载 Markdown</button>
+                      <button id="report-download-docx" class="dropdown-item">下载 Word</button>
+                      <button id="report-download-pdf" class="dropdown-item">导出 PDF</button>
+                    </div>
+                  </div>
+                  <button class="btn-secondary" id="report-copy-link">复制链接</button>
+                  <button class="modal-close" id="report-close" aria-label="关闭">×</button>
+                </div>
             </div>
             <div class="modal-body">
-                <iframe id="report-frame" class="report-frame" src="" frameborder="0"></iframe>
+                <iframe id="report-frame" class="report-frame" src="" frameborder="0" allow="clipboard-write"></iframe>
             </div>
         </div>
     </div>
