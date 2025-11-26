@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的报告 - AI招聘分析</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #1f2937; }
+    .navbar { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); position: sticky; top: 0; z-index: 1000; }
+    .navbar-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 1.5rem; font-weight: bold; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-links a { text-decoration: none; color: #4b5563; font-weight: 500; transition: color 0.3s; position: relative; }
+    .nav-links a:hover { color: #667eea; }
+    .nav-links a.active::after { content: ''; position: absolute; bottom: -4px; left: 0; right: 0; height: 2px; background: #667eea; }
+    .nav-links a.disabled { color: #9ca3af; cursor: not-allowed; pointer-events: none; }
+    .nav-badge { background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 4px; font-weight: 600; }
+    .nav-right { display: flex; gap: 1rem; align-items: center; }
+    .btn-settings { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #6b7280; transition: color 0.3s; }
+    .btn-settings:hover { color: #667eea; }
+    .user-email { color: #6b7280; font-size: 0.9rem; }
+    .center-panel { max-width: 1200px; width: min(1200px, calc(100% - 64px)); margin: 3rem auto; padding: 2rem; background: rgba(255, 255, 255, 0.95); border-radius: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-container">
+      <div class="logo">必涨·AI招聘分析</div>
+      <div class="nav-links">
+        <a href="index.html">首页</a>
+        <a href="resume-analysis.html">简历分析</a>
+        <a href="#" class="disabled">简历优化<span class="nav-badge">NEW</span></a>
+        <a href="my-reports.html" class="active">面试管理</a>
+      </div>
+      <div class="nav-right">
+        <button class="btn-settings" onclick="openSettings()">⚙️</button>
+        <div id="account-dropdown" class="dropdown" style="display:none;">
+          <button id="account-button" class="btn-secondary">
+            <i class="fas fa-user"></i>
+            <span id="account-email">已登录</span>
+            <i class="fas fa-caret-down"></i>
+          </button>
+          <div class="dropdown-menu">
+            <button class="dropdown-item" onclick="handleLogout()">退出登录</button>
+          </div>
+        </div>
+        <button id="login-btn" class="btn-secondary" onclick="openLoginModal()">登录</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="center-panel">
+  <div class="analysis-module" id="my-reports-module" style="display: block;">
+    <div class="module-header">
+      <button class="back-btn" onclick="window.location.href='index.html'">
+        <i class="fas fa-arrow-left"></i>
+        <span>返回</span>
+      </button>
+      <h2>我的报告</h2>
+    </div>
+    <div id="my-reports-content">
+      <p id="reports-notice" class="notice">请先登录后查看与保存报告。</p>
+      <div class="result-actions" style="margin-bottom:1rem">
+        <button class="btn-secondary" onclick="loadMyReports()"><i class="fas fa-sync"></i>刷新列表</button>
+      </div>
+      <div class="reports-filter">
+        <div class="filter-left">
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-starred" />
+            <span>仅星标</span>
+          </label>
+        </div>
+        <div class="filter-right">
+          <label for="filter-type">类型</label>
+          <select id="filter-type" class="filter-select">
+            <option value="all">全部</option>
+            <option value="resume">简历分析</option>
+            <option value="interview">面试分析</option>
+          </select>
+          <button class="btn-secondary" id="filter-reset"><i class="fas fa-undo"></i>重置</button>
+        </div>
+      </div>
+      <div id="reports-list" class="result-content markdown-content"></div>
+    </div>
+  </div>
+  </div>
+
+  <div class="loading-overlay" id="loading-overlay" style="display: none;">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <h3 data-zh="AI正在分析中..." data-en="AI is analyzing...">AI正在分析中...</h3>
+      <p data-zh="请稍候，这可能需要几分钟时间" data-en="Please wait, this may take a few minutes">请稍候，这可能需要几分钟时间</p>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <div class="modal-overlay" id="settings-modal" style="display:none;">
+    <div class="modal-panel login-panel">
+      <div class="modal-header">
+        <h3>OpenRouter 设置</h3>
+        <button class="modal-close" id="settings-close">×</button>
+      </div>
+      <div class="form-group">
+        <label for="provider-select">服务商</label>
+        <select id="provider-select" class="filter-select">
+          <option value="openrouter">OpenRouter</option>
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="openrouter-key">API Key</label>
+        <div class="input-with-icon">
+          <i class="fas fa-key"></i>
+          <input type="password" id="openrouter-key" placeholder="sk-...">
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" id="test-conn">检测连接</button>
+          <span id="conn-status" style="margin-left:0.5rem;color:#6b7280;">未检测</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="model-select">模型</label>
+        <select id="model-select" class="filter-select"></select>
+      </div>
+      <div class="form-group">
+        <label for="custom-model">自定义模型（可选）</label>
+        <input type="text" id="custom-model" placeholder="如 anthropic/claude-3.7-sonnet">
+      </div>
+      <div class="form-group">
+        <label for="prompt-resume">简历信息提取提示词</label>
+        <textarea id="prompt-resume" rows="6" placeholder="粘贴或编辑提示词"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="prompt-jd">岗位画像生成提示词</label>
+        <textarea id="prompt-jd" rows="6" placeholder="粘贴或编辑提示词"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="prompt-match">简历匹配度分析提示词</label>
+        <textarea id="prompt-match" rows="8" placeholder="粘贴或编辑提示词"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="prompt-interview">面试综合分析提示词</label>
+        <textarea id="prompt-interview" rows="8" placeholder="粘贴或编辑提示词"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="settings-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="login-modal" style="display:none;">
+    <div class="modal-panel login-panel">
+      <div class="modal-header">
+        <h3>登录你的账号</h3>
+        <button class="modal-close" onclick="closeLoginModal()" aria-label="关闭"><i class="fas fa-times"></i></button>
+      </div>
+      <p class="modal-subtitle">使用邮箱登录或注册</p>
+      <div id="login-error" class="error-state" style="display:none;"></div>
+      <div class="form-group"><label for="login-email">邮箱</label><div class="input-with-icon"><i class="fas fa-envelope"></i><input type="email" id="login-email" placeholder="you@example.com" autocomplete="username" /></div></div>
+      <div class="form-group" id="login-password-group"><label for="login-password">密码</label><div class="input-with-icon"><i class="fas fa-lock"></i><input type="password" id="login-password" placeholder="不少于6位" autocomplete="current-password" /><button type="button" class="input-action" onclick="(function(btn){const input=document.getElementById('login-password');const s=input.getAttribute('type')==='password'?'text':'password';input.setAttribute('type',s);btn.innerText=s==='password'?'显示':'隐藏';})(this)">显示</button></div></div>
+      <div class="modal-actions" id="login-actions"><button class="btn-primary" onclick="handleEmailLogin()"><i class="fas fa-sign-in-alt"></i>登录</button><button class="btn-secondary" onclick="openRegisterModal()"><i class="fas fa-user-plus"></i>注册</button></div>
+      <div class="modal-help"><a href="#" class="forgot-password-link" onclick="(function(){if(window.openForgotMode) window.openForgotMode();})(); return false;">忘记密码？</a></div>
+      <div class="modal-actions" id="forgot-actions" style="display:none;"><button class="btn-primary" onclick="handleForgotPassword()"><i class="fas fa-envelope"></i>发送重置邮件</button><button class="btn-secondary" onclick="(function(){if(window.switchLoginMode) window.switchLoginMode('login');})();"><i class="fas fa-sign-in-alt"></i>返回登录</button></div>
+      <p class="modal-privacy privacy-tip">登录即表示你同意我们保存你的报告用于个人查看与下载；管理员可用于系统维护与审计。</p>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="register-modal" style="display:none;">
+    <div class="modal-panel login-panel">
+      <div class="modal-header"><h3>注册新账号</h3><button class="modal-close" onclick="closeRegisterModal()" aria-label="关闭"><i class="fas fa-times"></i></button></div>
+      <p class="modal-subtitle">填写邮箱与密码完成注册</p>
+      <div id="register-error" class="error-state" style="display:none;"></div>
+      <div class="form-group"><label for="register-email">邮箱</label><div class="input-with-icon"><i class="fas fa-envelope"></i><input type="email" id="register-email" placeholder="you@example.com" autocomplete="username" /></div></div>
+      <div class="form-group"><label for="register-password">密码</label><div class="input-with-icon"><i class="fas fa-lock"></i><input type="password" id="register-password" placeholder="不少于6位" autocomplete="new-password" /></div></div>
+      <div class="form-group"><label for="register-password-confirm">确认密码</label><div class="input-with-icon"><i class="fas fa-lock"></i><input type="password" id="register-password-confirm" placeholder="再次输入" autocomplete="new-password" /></div></div>
+      <div class="modal-actions"><button class="btn-primary" onclick="handleEmailSignupRegister()"><i class="fas fa-user-plus"></i>注册</button><button class="btn-secondary" onclick="(function(){closeRegisterModal();openLoginModal();})()"><i class="fas fa-sign-in-alt"></i>返回登录</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="reset-modal" style="display:none;">
+    <div class="modal-panel login-panel">
+      <div class="modal-header"><h3>重置密码</h3><button class="modal-close" onclick="closeResetModal()" aria-label="关闭"><i class="fas fa-times"></i></button></div>
+      <p class="modal-subtitle">请设置一个新的密码</p>
+      <div class="form-group"><label for="reset-password">新密码</label><div class="input-with-icon"><i class="fas fa-lock"></i><input type="password" id="reset-password" placeholder="不少于6位" autocomplete="new-password" /></div></div>
+      <div class="form-group"><label for="reset-password-confirm">确认新密码</label><div class="input-with-icon"><i class="fas fa-lock"></i><input type="password" id="reset-password-confirm" placeholder="再次输入" autocomplete="new-password" /></div></div>
+      <div class="modal-actions"><button class="btn-primary" onclick="handlePasswordUpdate()"><i class="fas fa-key"></i>更新密码</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="report-modal" style="display:none;">
+    <div class="modal-panel report-panel">
+      <div class="modal-header">
+        <h3>报告预览</h3>
+        <div class="modal-actions" style="display:flex;gap:0.5rem;align-items:center;">
+          <div id="report-download-dropdown" class="dropdown">
+            <button id="report-download-dropdown-btn" class="btn-secondary"><i class="fas fa-download"></i>下载<i class="fas fa-caret-down"></i></button>
+            <div id="report-download-dropdown-menu" class="dropdown-menu">
+              <button id="report-download-md" class="dropdown-item">下载 Markdown</button>
+              <button id="report-download-docx" class="dropdown-item">下载 Word</button>
+              <button id="report-download-pdf" class="dropdown-item">导出 PDF</button>
+            </div>
+          </div>
+          <button class="btn-secondary" id="report-print">打印</button>
+          <button class="btn-secondary" id="report-copy-link">复制链接</button>
+          <button class="modal-close" id="report-close" aria-label="关闭">×</button>
+        </div>
+      </div>
+      <div class="modal-body"><iframe id="report-frame" class="report-frame" src="" frameborder="0" allow="clipboard-write"></iframe></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2/dist/tesseract.min.js"></script>
+  <script>
+    if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+  <script src="js/i18n.js"></script>
+  <script>
+    (function(){ var cfg = { url: 'https://bcsjxvhzoufzqzupygyl.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjc2p4dmh6b3VmenF6dXB5Z3lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MDY3NDIsImV4cCI6MjA3NzI4Mjc0Mn0.hqW92LKNOVDN9QohpyhxdUNt5r1A4FbLzX8Vg-bihZc' }; window.__SUPABASE_CONFIG = cfg; })();
+  </script>
+  <script src="js/supabase.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/settings.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){ try { if (typeof showMyReports === 'function') showMyReports(); } catch {} });
+  </script>
+</body>
+</html>

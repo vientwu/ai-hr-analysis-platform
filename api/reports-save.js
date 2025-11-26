@@ -47,6 +47,20 @@ export default async function handler(req, res) {
       body: JSON.stringify(full),
     });
     if (!resp.ok) {
+      const baseAlt = {
+        user_id: body.user_id,
+        title: body.title,
+        type: body.report_type || body.type,
+        content: body.content,
+        markdown_output: body.markdown_output,
+        created_at: body.created_at || new Date().toISOString(),
+      };
+      const fullAlt = {
+        ...baseAlt,
+        candidate_name: body.candidate_name ?? null,
+        job_title: body.job_title ?? null,
+        match_score: body.match_score ?? null,
+      };
       resp = await fetch(`${SUPABASE_URL}/rest/v1/reports`, {
         method: 'POST',
         headers: {
@@ -55,7 +69,7 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json',
           Prefer: 'return=representation',
         },
-        body: JSON.stringify(base),
+        body: JSON.stringify(fullAlt),
       });
     }
     const text = await resp.text();

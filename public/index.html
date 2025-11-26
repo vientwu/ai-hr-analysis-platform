@@ -3,8 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI智能招聘分析系统 | AI Recruitment Analyzer</title>
+    <title>必涨·AI招聘分析 - 让招聘更智能</title>
+    <script>
+      (function(){
+        if (window.__ERR_HOOK_INSTALLED__) return; window.__ERR_HOOK_INSTALLED__ = true;
+        function report(msg, src, line, col) {
+          try { console.error('[GlobalError]', msg, src || '', line || 0, col || 0); } catch {}
+          try {
+            var t = document.getElementById('toast');
+            if (t) { t.textContent = (src ? (src.split('/').pop()+':') : '') + (line||0) + ' ' + msg; t.style.display='block'; t.className='toast error show'; setTimeout(function(){ t.classList.remove('show'); t.style.display='none'; }, 5000); }
+          } catch {}
+        }
+        window.addEventListener('error', function(e){
+          var msg = (e && e.message) || 'Script error'; var src = (e && e.filename) || ''; var line = (e && e.lineno) || 0; var col = (e && e.colno) || 0;
+          report(msg, src, line, col);
+        });
+        window.onerror = function(message, source, lineno, colno) { report(message, source, lineno, colno); return false; };
+      })();
+    </script>
+    
     <link rel="stylesheet" href="styles/main.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #1f2937; }
+        .navbar { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); position: sticky; top: 0; z-index: 1000; }
+        .navbar-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a { text-decoration: none; color: #4b5563; font-weight: 500; transition: color 0.3s; position: relative; }
+        .nav-links a:hover { color: #667eea; }
+        .nav-links a.active::after { content: ''; position: absolute; bottom: -4px; left: 0; right: 0; height: 2px; background: #667eea; }
+        .nav-links a.disabled { color: #9ca3af; cursor: not-allowed; pointer-events: none; }
+        .nav-badge { background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 4px; font-weight: 600; }
+        .nav-right { display: flex; gap: 1rem; align-items: center; }
+        .btn-settings { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #6b7280; transition: color 0.3s; }
+        .btn-settings:hover { color: #667eea; }
+        .user-email { color: #6b7280; font-size: 0.9rem; }
+        .hero { max-width: 1400px; margin: 4rem auto; padding: 4rem 2rem; text-align: center; color: white; }
+        .hero h1 { font-size: 3rem; margin-bottom: 1rem; font-weight: 700; line-height: 1.2; }
+        .hero-subtitle { font-size: 1.25rem; margin-bottom: 0.5rem; opacity: 0.95; }
+        .hero-description { font-size: 1.1rem; margin-bottom: 2.5rem; opacity: 0.9; }
+        .hero-buttons { display: flex; gap: 1rem; justify-content: center; margin-bottom: 3rem; }
+        .hero .btn-primary { background: white; color: #667eea; padding: 1rem 2.5rem; border-radius: 50px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: all 0.3s; border: 2px solid white; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .hero .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); }
+        .hero .btn-secondary { background: transparent; color: white; padding: 1rem 2.5rem; border-radius: 50px; text-decoration: none; font-weight: 600; font-size: 1.1rem; transition: all 0.3s; border: 2px solid white; }
+        .hero .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); }
+        .hero-stats { display: flex; justify-content: center; gap: 3rem; font-size: 0.95rem; opacity: 0.9; }
+        .stat-item { display: flex; align-items: center; gap: 0.5rem; }
+        .features { max-width: 1400px; margin: 0 auto 4rem; padding: 0 2rem; }
+        .section-title { text-align: center; color: white; font-size: 2rem; margin-bottom: 3rem; font-weight: 600; }
+        .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 3rem; }
+        .feature-card { background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); transition: all 0.3s; position: relative; overflow: hidden; }
+        .feature-card:hover { transform: translateY(-8px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15); }
+        .card-icon { font-size: 3rem; margin-bottom: 1rem; display: block; }
+        .card-badge { position: absolute; top: 1rem; right: 1rem; background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
+        .feature-card h3 { font-size: 1.5rem; margin-bottom: 1rem; color: #1f2937; }
+        .feature-card p { color: #6b7280; line-height: 1.6; margin-bottom: 1.5rem; }
+        .feature-list { list-style: none; margin-bottom: 1.5rem; }
+        .feature-list li { color: #6b7280; padding: 0.3rem 0; padding-left: 1.5rem; position: relative; font-size: 0.95rem; }
+        .feature-list li::before { content: '✓'; position: absolute; left: 0; color: #10b981; font-weight: bold; }
+        .btn-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.8rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block; transition: all 0.3s; border: none; cursor: pointer; width: 100%; text-align: center; }
+        .btn-card:hover { opacity: 0.9; transform: scale(1.02); }
+        .workflow { max-width: 1400px; margin: 4rem auto; padding: 3rem 2rem; background: rgba(255, 255, 255, 0.95); border-radius: 20px; }
+        .workflow-title { text-align: center; font-size: 2rem; margin-bottom: 3rem; color: #1f2937; }
+        .workflow-steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2rem; position: relative; }
+        .workflow-step { text-align: center; position: relative; }
+        .step-number { width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; margin: 0 auto 1rem; }
+        .step-title { font-weight: 600; margin-bottom: 0.5rem; color: #1f2937; }
+        .step-desc { color: #6b7280; font-size: 0.9rem; }
+        .scenarios { max-width: 1400px; margin: 4rem auto; padding: 0 2rem; }
+        .scenario-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; }
+        .scenario-card { background: rgba(255, 255, 255, 0.95); border-radius: 12px; padding: 1.5rem; border-left: 4px solid #667eea; }
+        .scenario-card h4 { color: #1f2937; margin-bottom: 0.5rem; font-size: 1.1rem; }
+        .scenario-card p { color: #6b7280; font-size: 0.95rem; }
+        @media (max-width: 1200px) { .cards-grid { grid-template-columns: repeat(2, 1fr); } .workflow-steps { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 768px) { .navbar-container { flex-direction: column; gap: 1rem; } .nav-links { flex-direction: column; gap: 1rem; } .hero h1 { font-size: 2rem; } .hero-buttons { flex-direction: column; } .hero-stats { flex-direction: column; gap: 1rem; } .cards-grid { grid-template-columns: 1fr; } .workflow-steps { grid-template-columns: 1fr; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .feature-card { animation: fadeInUp 0.6s ease-out; }
+        .feature-card:nth-child(2) { animation-delay: 0.1s; }
+        .feature-card:nth-child(3) { animation-delay: 0.2s; }
+        .feature-card:nth-child(4) { animation-delay: 0.3s; }
+    </style>
     
     <!-- 内置图标，避免 favicon.ico 404 -->
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%232563eb'/%3E%3Ctext x='32' y='42' font-size='36' text-anchor='middle' fill='white'%3EA%3C/text%3E%3C/svg%3E">
@@ -12,41 +91,129 @@
 <body>
     <!-- 导航栏 -->
     <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <i class="fas fa-brain"></i>
-                <span data-zh="必涨·AI招聘分析" data-en="Bizhang · AI Recruitment">必涨·AI招聘分析</span>
+        <div class="navbar-container">
+            <div class="logo">必涨·AI招聘分析</div>
+            <div class="nav-links">
+                <a href="index.html" class="active">首页</a>
+                <a href="resume-analysis.html">简历分析</a>
+                <a href="#" class="disabled">简历优化<span class="nav-badge">NEW</span></a>
+                <a href="my-reports.html">面试管理</a>
             </div>
-            <div class="nav-actions">
-                <div class="nav-links">
-                    <button class="nav-link" onclick="window.location.href='index.html'">首页</button>
-                    <button class="nav-link" onclick="showResumeAnalysis()">简历分析</button>
-                    <button class="nav-link" onclick="window.location.href='index.html#interview'">面试分析</button>
-                    <button class="nav-link" onclick="showMyReports()">我的报告</button>
+            <div class="nav-right">
+                <button class="btn-settings" onclick="openSettings()">⚙️</button>
+                <div id="account-dropdown" class="dropdown" style="display:none;">
+                  <button id="account-button" class="btn-secondary">
+                    <i class="fas fa-user"></i>
+                    <span id="account-email">已登录</span>
+                    <i class="fas fa-caret-down"></i>
+                  </button>
+                  <div class="dropdown-menu">
+                    <button class="dropdown-item" onclick="handleLogout()">退出登录</button>
+                  </div>
                 </div>
-                
-                <div class="auth-actions">
-                    <button id="login-btn" class="btn-secondary" onclick="openLoginModal()">登录</button>
-                    <div id="account-dropdown" class="dropdown" style="display:none">
-                        <button class="btn-secondary" id="account-button">
-                            <i class="fas fa-user"></i>
-                            <span id="account-email">已登录</span>
-                            <i class="fas fa-caret-down"></i>
-                        </button>
-                        <div class="dropdown-menu">
-                            <button class="dropdown-item" onclick="openSettings()">设置</button>
-                            <button class="dropdown-item" onclick="handleLogout()">退出登录</button>
-                        </div>
-                    </div>
-                </div>
+                <button id="login-btn" class="btn-secondary" onclick="openLoginModal()">登录</button>
             </div>
         </div>
     </nav>
+    <section class="hero">
+        <h1>AI赋能招聘全流程</h1>
+        <p class="hero-subtitle">让人才选拔更高效、更精准</p>
+        <p class="hero-description">从简历筛选到面试评估，智能分析助力人才决策</p>
+        <div class="hero-buttons">
+            <a href="resume-analysis.html" class="btn-primary">🚀 开始使用</a>
+            <a href="#workflow" class="btn-secondary">📺 了解更多</a>
+        </div>
+        <div class="hero-stats">
+            <div class="stat-item"><span>📊</span><span>已服务 15,234 位HR</span></div>
+            <div class="stat-item"><span>⚡</span><span>节省 89% 筛选时间</span></div>
+            <div class="stat-item"><span>🎯</span><span>匹配准确率 95%+</span></div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <h2 class="section-title">核心功能</h2>
+        <div class="cards-grid">
+            <div class="feature-card">
+                <span class="card-icon">📄</span>
+                <h3>智能简历分析</h3>
+                <p>上传简历与岗位JD，AI自动生成匹配度分析报告</p>
+                <ul class="feature-list">
+                    <li>支持多格式文件解析</li>
+                    <li>岗位匹配度评分</li>
+                    <li>优劣势分析</li>
+                    <li>一键生成报告</li>
+                </ul>
+                <a href="resume-analysis.html" class="btn-card">立即分析</a>
+            </div>
+            <div class="feature-card">
+                <span class="card-badge">NEW</span>
+                <span class="card-icon">✨</span>
+                <h3>简历优化建议</h3>
+                <p>AI诊断简历问题，提供个性化修改建议</p>
+                <ul class="feature-list">
+                    <li>智能识别简历问题</li>
+                    <li>针对性改写建议</li>
+                    <li>关键词优化</li>
+                    <li>提升竞争力</li>
+                </ul>
+                <a href="#" class="btn-card" onclick="showResumeAnalysis(); return false;">优化简历</a>
+            </div>
+            <div class="feature-card">
+                <span class="card-icon">🎤</span>
+                <h3>AI面试助手</h3>
+                <p>实时录音转写，智能分析面试表现</p>
+                <ul class="feature-list">
+                    <li>实时语音转文字</li>
+                    <li>面试笔记记录</li>
+                    <li>候选人备注管理</li>
+                    <li>综合评估报告</li>
+                </ul>
+                <a href="my-reports.html" class="btn-card">开始面试</a>
+            </div>
+            <div class="feature-card">
+                <span class="card-icon">📊</span>
+                <h3>报告管理中心</h3>
+                <p>查看所有历史记录，支持多格式导出</p>
+                <ul class="feature-list">
+                    <li>云端安全存储</li>
+                    <li>多维度筛选</li>
+                    <li>导出Markdown/Word/PDF</li>
+                    <li>数据永久保存</li>
+                </ul>
+                <a href="my-reports.html" class="btn-card">查看报告</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="workflow" id="workflow">
+        <h2 class="workflow-title">完整招聘流程，AI全程赋能</h2>
+        <div class="workflow-steps">
+            <div class="workflow-step"><div class="step-number">1</div><div class="step-title">上传材料</div><div class="step-desc">上传简历与岗位JD</div></div>
+            <div class="workflow-step"><div class="step-number">2</div><div class="step-title">AI分析</div><div class="step-desc">智能匹配与评分</div></div>
+            <div class="workflow-step"><div class="step-number">3</div><div class="step-title">查看报告</div><div class="step-desc">获取详细分析结果</div></div>
+            <div class="workflow-step"><div class="step-number">4</div><div class="step-title">安排面试</div><div class="step-desc">实时录音与记录</div></div>
+            <div class="workflow-step"><div class="step-number">5</div><div class="step-title">综合评估</div><div class="step-desc">生成最终决策报告</div></div>
+        </div>
+    </section>
+
+    <section class="scenarios">
+        <h2 class="section-title">适合你的使用场景</h2>
+        <div class="scenario-cards">
+            <div class="scenario-card"><h4>🎯 HR批量筛选</h4><p>快速筛选大量简历，自动匹配打分，节省80%时间</p></div>
+            <div class="scenario-card"><h4>💼 候选人优化</h4><p>帮助候选人优化简历，提升岗位匹配度</p></div>
+            <div class="scenario-card"><h4>📝 面试官准备</h4><p>生成面试问题，实时记录，智能评估表现</p></div>
+        </div>
+    </section>
+
+    <script>
+        document.querySelectorAll('a[href^="#"]').forEach(function(anchor){ anchor.addEventListener('click', function(e){ e.preventDefault(); var target = document.querySelector(this.getAttribute('href')); if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }); });
+        (function(){ var observerOptions = { threshold: 0.1, rootMargin: '0px 0px -100px 0px' }; var observer = new IntersectionObserver(function(entries){ entries.forEach(function(entry){ if (entry.isIntersecting) { entry.target.style.animation = 'fadeInUp 0.6s ease-out'; } }); }, observerOptions); document.querySelectorAll('.feature-card, .workflow-step, .scenario-card').forEach(function(el){ observer.observe(el); }); })();
+    </script>
 
     <!-- 主容器 -->
     <div class="main-container">
         <!-- 功能选择卡片 -->
-        <div class="feature-cards">
+        <div class="feature-cards-old" style="display:none">
             <div class="card" id="resume-card">
                 <div class="card-icon">
                     <i class="fas fa-file-alt"></i>
@@ -61,19 +228,7 @@
                 </button>
             </div>
 
-            <div class="card" id="interview-card">
-                <div class="card-icon">
-                    <i class="fas fa-microphone"></i>
-                </div>
-                <h3 data-zh="面试分析" data-en="Interview Analysis">面试分析</h3>
-                <p data-zh="上传面试录音转文字文档（PDF/DOC/DOCX），获得面试过程分析和改进建议" data-en="Upload interview transcript document (PDF/DOC/DOCX) for process analysis and improvement suggestions">
-                    上传面试录音转文字文档（PDF/DOC/DOCX），获得面试过程分析和改进建议
-                </p>
-                <button class="btn-primary" onclick="showInterviewAnalysis()">
-                    <span data-zh="开始分析" data-en="Start Analysis">开始分析</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-            </div>
+            
         </div>
 
         <!-- 简历分析模块（合并新页面内容） -->
@@ -92,9 +247,9 @@
                         <div class="upload-area" onclick="document.getElementById('new-resume-files').click()">
                             <i class="fas fa-cloud-upload-alt"></i>
                             <p data-zh="点击或拖拽文件到此处" data-en="Click or drag files here">点击或拖拽文件到此处</p>
-                            <small data-zh="支持 PDF, DOCX, TXT，最大 50MB/文件" data-en="Supports PDF, DOCX, TXT, up to 50MB/file">支持 PDF, DOCX, TXT，最大 50MB/文件</small>
+                            <small data-zh="支持 PDF（含图片型）、DOCX、TXT、RTF、PNG/JPG，最大 50MB/文件" data-en="Supports PDF (incl. scanned), DOCX, TXT, RTF, PNG/JPG, up to 50MB/file">支持 PDF（含图片型）、DOCX、TXT、RTF、PNG/JPG，最大 50MB/文件</small>
                         </div>
-                        <input type="file" id="new-resume-files" accept=".pdf,.docx,.txt" multiple style="display:none">
+                        <input type="file" id="new-resume-files" accept=".pdf,.docx,.txt,.rtf,.png,.jpg,.jpeg" multiple style="display:none">
                         <div class="file-info" id="new-resume-files-info" style="display:none"></div>
                     </div>
                 </div>
@@ -156,16 +311,16 @@
                 </div>
 
                 <div class="upload-group">
-                    <label data-zh="面试转写文档（PDF/DOC/DOCX）" data-en="Interview Transcript Document (PDF/DOC/DOCX)">面试转写文档（PDF/DOC/DOCX）</label>
+                    <label data-zh="面试转写文档（PDF/DOC/DOCX/TXT/RTF/PNG/JPG）" data-en="Interview Transcript Document (PDF/DOC/DOCX/TXT/RTF/PNG/JPG)">面试转写文档（PDF/DOC/DOCX/TXT/RTF/PNG/JPG）</label>
                     <div class="file-upload" id="interview-upload">
                         <div class="upload-area" onclick="document.getElementById('interview-file').click()">
                             <i class="fas fa-file-word"></i>
-                            <p data-zh="点击或拖拽 PDF/DOC/DOCX 文件到此处" data-en="Click or drag PDF/DOC/DOCX file here">点击或拖拽 PDF/DOC/DOCX 文件到此处</p>
-                            <small data-zh="支持 PDF、DOC、DOCX 格式，最大 500MB" data-en="Supports PDF, DOC, DOCX formats, max 500MB">
-                                支持 PDF、DOC、DOCX 格式，最大 500MB
+                            <p data-zh="点击或拖拽 PDF/DOC/DOCX/TXT/RTF/PNG/JPG 文件到此处" data-en="Click or drag PDF/DOC/DOCX/TXT/RTF/PNG/JPG file here">点击或拖拽 PDF/DOC/DOCX/TXT/RTF/PNG/JPG 文件到此处</p>
+                            <small data-zh="支持 PDF、DOC、DOCX、TXT、RTF、PNG、JPG 格式，最大 500MB" data-en="Supports PDF, DOC, DOCX, TXT, RTF, PNG, JPG formats, max 500MB">
+                                支持 PDF、DOC、DOCX、TXT、RTF、PNG、JPG 格式，最大 500MB
                             </small>
                         </div>
-                        <input type="file" id="interview-file" accept=".pdf,.doc,.docx" style="display: none;">
+                        <input type="file" id="interview-file" accept=".pdf,.doc,.docx,.txt,.rtf,.png,.jpg,.jpeg" style="display: none;">
                         <div class="file-info" id="interview-file-info" style="display: none;"></div>
                     </div>
                 </div>
@@ -290,7 +445,7 @@
                 </div>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="login-password-group">
                 <label for="login-password">密码</label>
                 <div class="input-with-icon">
                     <i class="fas fa-lock"></i>
@@ -299,7 +454,7 @@
                 </div>
             </div>
 
-            <div class="modal-actions">
+            <div class="modal-actions" id="login-actions">
                 <button class="btn-primary" onclick="handleEmailLogin()">
                     <i class="fas fa-sign-in-alt"></i>
                     登录
@@ -311,7 +466,18 @@
             </div>
 
             <div class="modal-help">
-                <a href="#" class="forgot-password-link" onclick="handleForgotPassword(); return false;">忘记密码？</a>
+                <a href="#" class="forgot-password-link" onclick="(function(){if(window.openForgotMode) window.openForgotMode();})(); return false;">忘记密码？</a>
+            </div>
+
+            <div class="modal-actions" id="forgot-actions" style="display:none;">
+                <button class="btn-primary" onclick="handleForgotPassword()">
+                    <i class="fas fa-envelope"></i>
+                    发送重置邮件
+                </button>
+                <button class="btn-secondary" onclick="(function(){if(window.switchLoginMode) window.switchLoginMode('login');})();">
+                    <i class="fas fa-sign-in-alt"></i>
+                    返回登录
+                </button>
             </div>
 
             <p class="modal-privacy privacy-tip">登录即表示你同意我们保存你的报告用于个人查看与下载；管理员可用于系统维护与审计。</p>
@@ -422,6 +588,7 @@
                       <button id="report-download-pdf" class="dropdown-item">导出 PDF</button>
                     </div>
                   </div>
+                  <button class="btn-secondary" id="report-print">打印</button>
                   <button class="btn-secondary" id="report-copy-link">复制链接</button>
                   <button class="modal-close" id="report-close" aria-label="关闭">×</button>
                 </div>
@@ -476,16 +643,17 @@
           <textarea id="prompt-jd" rows="6" placeholder="粘贴或编辑提示词"></textarea>
         </div>
         <div class="form-group">
-          <label for="prompt-match">匹配度+面试分析提示词</label>
+          <label for="prompt-match">简历匹配度分析提示词</label>
           <textarea id="prompt-match" rows="8" placeholder="粘贴或编辑提示词"></textarea>
         </div>
-        <div class="modal-actions">
-          <button class="btn-secondary" id="load-default-prompts">从默认文件加载</button>
+        <div class="form-group">
+          <label for="prompt-interview">面试综合分析提示词</label>
+          <textarea id="prompt-interview" rows="8" placeholder="粘贴或编辑提示词"></textarea>
         </div>
         <div class="modal-actions">
           <button class="btn-primary" id="settings-save">保存</button>
         </div>
-        <p class="modal-privacy privacy-tip">设置仅保存在本地浏览器，调用时通过后端代理安全转发。</p>
+        
       </div>
     </div>
 
@@ -516,18 +684,19 @@
 
     <script src="js/i18n.js"></script>
     <script>
-      window.__SUPABASE_CONFIG = {
-        url: 'https://bcsjxvhzoufzqzupygyl.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjc2p4dmh6b3VmenF6dXB5Z3lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MDY3NDIsImV4cCI6MjA3NzI4Mjc0Mn0.hqW92LKNOVDN9QohpyhxdUNt5r1A4FbLzX8Vg-bihZc'
-      };
+      (function(){
+        var cfg = {
+          url: 'https://bcsjxvhzoufzqzupygyl.supabase.co',
+          anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjc2p4dmh6b3VmenF6dXB5Z3lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MDY3NDIsImV4cCI6MjA3NzI4Mjc0Mn0.hqW92LKNOVDN9QohpyhxdUNt5r1A4FbLzX8Vg-bihZc'
+        };
+        window.__SUPABASE_CONFIG = cfg;
+      })();
     </script>
-    <!-- Supabase JS（UMD 版本，提供 window.supabase 全局对象） -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
     <script src="js/supabase.js"></script>
     <script src="js/api.js"></script>
     <script src="js/main.js"></script>
     <script src="js/settings.js"></script>
-    <script src="js/new-analysis.js"></script>
+    
     <!-- 已移除 API 调试按钮脚本 -->
 
 </body>

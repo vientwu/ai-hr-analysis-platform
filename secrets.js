@@ -9,7 +9,7 @@
 
 export const STATIC_SECRETS = {
   // Coze 访问令牌（仅用于后端函数，不会暴露到前端）
-  COZE_PAT: 'pat_IVdrUr3cpkBnRvGvM4oO6A9OpW8nSGmgWj2DoQzgsaSDVAXYFIWpoOADm0pIZPtF',
+  COZE_PAT: '',
 
   // Supabase 配置（anon key 可公开，受RLS保护；URL 非敏感）
   SUPABASE_URL: 'https://bcsjxvhzoufzqzupygyl.supabase.co',

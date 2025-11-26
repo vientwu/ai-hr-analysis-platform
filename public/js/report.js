@@ -150,18 +150,141 @@
         let candidate_name = '';
         let job_title = '';
         let match_score = null;
+        const strip = (s) => String(s || '').replace(/<br\s*\/>/gi, ' ').replace(/<br>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        const validJob = (s) => {
+            const t = strip(s);
+            if (!t) return '';
+            if (t.length > 40) return '';
+            if (/[•\d]\s*[\.\)]/.test(t)) return '';
+            if (/(匹配度|评估|结论|建议|差距|不足|能力|稳定|经验|画像|要求)/i.test(t)) return '';
+            return t;
+        };
+        const grabHtmlTableCell = (keys) => {
+            const re = new RegExp(`<tr[\\s\\S]*?<td[\\s\\S]*?>\\s*(?:${keys.join('|')})\\s*<\\/td>\\s*<td[\\s\\S]*?>\\s*([\\s\\S]*?)<\\/td>`, 'i');
+            const m = text.match(re);
+            if (m && m[1]) { const v = strip(m[1]); if (v) return v; }
+            return '';
+        };
         const grab = (regex) => {
             for (const line of lines) {
+                if (/^\|/.test(line)) continue;
                 const m = line.match(regex);
-                if (m && m[1]) return m[1].trim();
+                if (m && m[1]) return strip(m[1]);
             }
             return '';
         };
-        candidate_name = grab(/^(?:\s*[-*]?\s*)?(?:姓名|候选人|面试者|Name|Candidate|Interviewee)\s*[：:]\s*([^\n]+)/i)
-            || (text.match(/(?:面试者|姓名|Name|Interviewee)\s*[:：]\s*([^\n]+)/i)?.[1] || '').trim();
-        job_title = grab(/^(?:\s*[-*]?\s*)?(?:岗位|职位|岗位名称|职位名称|Job\s*Title|Position|Role)\s*[：:]\s*([^\n]+)/i)
-            || (text.match(/(?:岗位|职位|Job\s*Title|Position|Role)\s*[:：]\s*([^\n]+)/i)?.[1] || '').trim();
-        let scoreStr = grab(/^(?:\s*[-*]?\s*)?(?:综合匹配度|总体匹配度|总匹配度|综合匹配)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+        const grabTable = (keys) => {
+            for (const line of lines) {
+                if (!/^\|/.test(line)) continue;
+                const cols = line.split('|').map(s => s.trim());
+                for (let i = 0; i < cols.length - 1; i++) {
+                    const k = cols[i];
+                    const v = cols[i + 1];
+                    if (new RegExp(`^(?:${keys.join('|')})$`, 'i').test(k)) {
+                        const out = strip(v);
+                        if (out) return out;
+                    }
+                }
+            }
+            return '';
+        };
+        candidate_name = grab(/^(?:\s*[-*]?\s*)?(?:姓名|候选人|面试者|Name|Candidate|Interviewee)\s*[：:]\s*([^\n]+)/i);
+        if (!candidate_name) {
+            const t = text.match(/(?:候选人|面试者|姓名|Name|Candidate|Interviewee)\s*[:：]\s*([^\n]+)/i);
+            if (t && t[1]) candidate_name = strip(t[1]);
+            if (!candidate_name) candidate_name = grabTable(['姓名','候选人','面试者','Name','Candidate','Interviewee']);
+        }
+        const jobKeys = ['面试岗位','应聘岗位','招聘岗位','岗位名称','职位名称','Job\\s*Title','Position','Role'];
+        job_title = grab(new RegExp(`^(?:\\s*[-*]?\\s*)?(?:${jobKeys.join('|')})\\s*[：:]\\s*([^\\n]+)$`, 'i'));
+        if (!job_title) job_title = grabTable(['面试岗位','应聘岗位','招聘岗位','岗位名称','职位名称']);
+        if (!job_title) {
+            const cell = grabHtmlTableCell(['面试岗位','应聘岗位','招聘岗位','岗位名称','职位名称','岗位','Job\\s*Title','Position','Role']);
+            if (cell) { const v = validJob(cell); if (v) job_title = v; }
+        }
+        if (!job_title) {
+            for (const line of lines) {
+                if (/^\|/.test(line)) continue;
+                const h = line.match(/^#{1,6}\s*(.+)$/);
+                const src = (h && h[1]) ? h[1] : line;
+                const m2 = src.match(/([^\n]+?)\s*岗位(?:人才评估|评估报告|报告|画像)?/);
+                if (m2 && validJob(m2[1])) { job_title = validJob(m2[1]); break; }
+            }
+        }
+        if (!job_title) {
+            const g = text.match(new RegExp(`(?:${jobKeys.join('|')})\s*[:：]\s*([^\n]+)`, 'i'));
+            if (g && g[1]) { const v = validJob(g[1]); if (v) job_title = v; }
+        }
+        if (!job_title) {
+            const mm = Array.from(text.matchAll(new RegExp(`(?:${jobKeys.join('|')})\\s*[:：]?\\s*([^\\n%|]{2,40})`, 'gi'))).map(m => strip(m[1])).filter(x => validJob(x));
+            if (mm.length) job_title = mm[mm.length - 1];
+        }
+        if (!job_title && candidate_name) {
+            const mbr = candidate_name.match(/(?:\(|（|\[)\s*([^\)\]）]{2,40})\s*(?:\)|）|\])/);
+            if (mbr && mbr[1]) {
+                const v = validJob(mbr[1]);
+                if (v) {
+                    job_title = v;
+                    candidate_name = strip(candidate_name.replace(/(?:\(|（|\[)[^\)\]）]{2,40}(?:\)|）|\])/, ''));
+                }
+            }
+        }
+    let scoreStr = null;
+    {
+        const anchorIdx = (() => {
+            for (let i = 0; i < lines.length; i++) {
+                const l = lines[i];
+                if (/招聘决策摘要|第一部分/i.test(l)) return i;
+            }
+            return -1;
+        })();
+        if (anchorIdx !== -1) {
+            const end = Math.min(lines.length, anchorIdx + 80);
+            const subText = lines.slice(anchorIdx, end).join('\n');
+            let mHtml = subText.match(/<td[^>]*>\s*匹配度\s*<\/td>\s*<td[^>]*>\s*([0-9]{1,3})\s*[%％]/i);
+            if (mHtml && mHtml[1]) { scoreStr = mHtml[1]; }
+            if (!scoreStr) {
+                for (let j = anchorIdx; j < end; j++) {
+                    const l = lines[j];
+                    if (/^\|/.test(l)) {
+                        const cols = l.split('|').map(s => s.trim());
+                        const isSep = cols.some(c => /^-+$/.test(c));
+                        if (isSep) continue;
+                        for (let i = 0; i < cols.length - 1; i++) {
+                            if (/^匹配度$/i.test(cols[i])) {
+                                const m = (cols[i + 1] || '').match(/([0-9]{1,3})\s*[%％]/);
+                                if (m) { scoreStr = m[1]; break; }
+                            }
+                        }
+                        if (scoreStr) break;
+                    } else {
+                        const m = l.match(/匹配度\s*[:：]?\s*([0-9]{1,3})\s*[%％]/i);
+                        if (m) { scoreStr = m[1]; break; }
+                        if (/匹配度/i.test(l)) {
+                            for (let k = j + 1; k < Math.min(j + 4, end); k++) {
+                                const lk = lines[k];
+                                const mk = lk.match(/([0-9]{1,3})\s*[%％]/);
+                                if (mk) { scoreStr = mk[1]; break; }
+                            }
+                            if (scoreStr) break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (!scoreStr) scoreStr = grab(/^(?:\s*[-*]?\s*)?(?:综合匹配度|总体匹配度|总匹配度|岗位匹配度|综合评分|综合匹配|匹配度)\s*[：:]\s*([0-9]{1,3})\s*[%％]/i);
+        if (!scoreStr) {
+            const cell = grabTable(['综合匹配度','总体匹配度','总匹配度','岗位匹配度','综合评分','匹配度']);
+            if (cell) { const m = cell.match(/([0-9]{1,3})\s*[%％]/); if (m) scoreStr = m[1]; }
+        }
+    if (!scoreStr) {
+        const mRow = text.match(/(^|\n)\s*\|\s*匹配度\s*\|\s*([0-9]{1,3})\s*[%％]/mi);
+        if (mRow && mRow[2]) scoreStr = mRow[2];
+    }
+        if (!scoreStr) {
+            const cell2 = grabHtmlTableCell(['综合匹配度','总体匹配度','总匹配度','岗位匹配度','综合评分','匹配度']);
+            if (cell2) { const m2 = cell2.match(/([0-9]{1,3})\s*%/); if (m2) scoreStr = m2[1]; }
+        }
         if (!scoreStr) {
             const sectionRe = /评估结论|候选人详细评估|综合评估|Evaluation|Summary/i;
             for (let i = 0; i < lines.length; i++) {
@@ -169,7 +292,8 @@
                     for (let j = i; j < Math.min(i + 20, lines.length); j++) {
                         const l = lines[j];
                         if (/^\|/.test(l)) continue;
-                        const m = l.match(/(?:综合匹配度|匹配度)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+                        let m = l.match(/(?:综合匹配度|岗位匹配度|匹配度|综合评分)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+                        if (!m) m = l.match(/(?:综合匹配度|岗位匹配度|匹配度|综合评分)\s*([0-9]{1,3})\s*%/i);
                         if (m && m[1]) { scoreStr = m[1]; break; }
                     }
                     if (scoreStr) break;
@@ -180,12 +304,13 @@
             for (const line of lines) {
                 if (/^\|/.test(line)) continue;
                 if (/命中率|命中数|维度|得分|分值|points|硬性|V-Raise/i.test(line)) continue;
-                const m = line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|综合匹配)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+                let m = line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+                if (!m) m = line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*([0-9]{1,3})\s*%/i);
                 if (m && m[1]) { scoreStr = m[1]; break; }
             }
         }
         if (!scoreStr) {
-            const all = Array.from(text.matchAll(/(?:匹配度|综合匹配)\s*[:：]\s*([0-9]{1,3})\s*%/gi)).map(m => m[1]);
+            const all = Array.from(text.matchAll(/(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*[:：]?\s*([0-9]{1,3})\s*%/gi)).map(m => m[1]);
             if (all.length) scoreStr = all[all.length - 1];
         }
         if (scoreStr) {
@@ -214,40 +339,50 @@
                 if (!user && window.Auth.getClient && window.Auth.getClient()) {
                     try { const { data } = await window.Auth.getClient().auth.getSession(); user = data?.session?.user || null; } catch {}
                 }
+                // 如果未登录，则尝试本地演示数据回退
                 if (!user) {
-                    const retry = async () => { window.removeEventListener('auth-changed', handler); await fetchReport(); };
-                    const handler = () => retry();
-                    window.addEventListener('auth-changed', handler, { once: true });
-                    document.getElementById('report-content').innerHTML = '<p class="notice">请先登录</p>';
-                    setupToolbar('', '报告');
-                    return;
-                }
-                // 优先尝试通过本地 /api 代理拉取列表（兼容云端部署统一行为）
-                let fetched = null;
-                try {
+                    try {
+                        const demo = JSON.parse(localStorage.getItem('demo_user') || 'null');
+                        const uid = demo?.id || null;
+                        if (uid) {
+                            const arr = JSON.parse(localStorage.getItem(`demo_reports_${uid}`) || '[]') || [];
+                            const found = arr.find(r => String(r.id) === String(reportId)) || null;
+                            if (found) record = found;
+                        }
+                    } catch {}
+                    if (!record) {
+                        const retry = async () => { window.removeEventListener('auth-changed', handler); await fetchReport(); };
+                        const handler = () => retry();
+                        window.addEventListener('auth-changed', handler, { once: true });
+                        document.getElementById('report-content').innerHTML = '<p class="notice">请先登录</p>';
+                        setupToolbar('', '报告');
+                        return;
+                    }
+                } else {
+                    // 已登录：优先通过本地 /api 代理拉取列表；无令牌则跳过云端调用
+                    let fetched = null;
                     let token = '';
                     try { const { data } = await window.Auth.getClient().auth.getSession(); token = data?.session?.access_token || ''; } catch {}
-                    const apiBase = (window.location && window.location.port === '4321') ? 'http://127.0.0.1:4000' : '';
-                    const resp = await fetch(`${apiBase}/api/reports-list?user_id=${encodeURIComponent(user.id)}`, {
-                        headers: token ? { Authorization: `Bearer ${token}` } : {}
-                    });
-                    if (resp.ok) {
-                        const json = await resp.json();
-                        const list = json?.data || [];
-                        fetched = list.find(r => String(r.id) === String(reportId)) || null;
+                    if (token) {
+                        try {
+                            const { data, error } = await window.Auth.supabase
+                                .from('reports')
+                                .select('*')
+                                .eq('id', reportId)
+                                .limit(1)
+                                .maybeSingle();
+                            if (!error && data) fetched = data;
+                        } catch {}
                     }
-                } catch {}
-                if (!fetched) {
-                    // 代理不可用或未返回记录时，直接使用 Supabase 客户端按 id 查询
-                    const { data, error } = await window.Auth.supabase
-                        .from('reports')
-                        .select('*')
-                        .eq('id', reportId)
-                        .limit(1)
-                        .maybeSingle();
-                    if (!error && data) fetched = data;
+                    // 若云端未取到，尝试读取本地演示数据
+                    if (!fetched) {
+                        try {
+                            const arr = JSON.parse(localStorage.getItem(`demo_reports_${user.id}`) || '[]') || [];
+                            fetched = arr.find(r => String(r.id) === String(reportId)) || null;
+                        } catch {}
+                    }
+                    record = fetched;
                 }
-                record = fetched;
             }
         } catch (err) {
             console.error('Fetch report error', err);
@@ -261,12 +396,45 @@
             return;
         }
 
-        const md = record.content ?? record.markdown_output ?? '';
+        let md = '';
+        try {
+            const rawPref = (record.markdown_output !== undefined && record.markdown_output !== null) ? record.markdown_output : (record.content ?? '');
+            const s = String(rawPref || '').trim();
+            if (s.startsWith('{')) {
+                let obj = null; try { obj = JSON.parse(s); } catch { obj = null; }
+                if (obj) {
+                    if (typeof obj.resume_md === 'string') md = obj.resume_md;
+                    else if (typeof obj.md === 'string') md = obj.md;
+                    else if (typeof obj.ai_analysis_md === 'string') md = obj.ai_analysis_md;
+                    else {
+                        const find = (o) => {
+                            if (!o) return '';
+                            if (typeof o === 'string') return o;
+                            if (Array.isArray(o)) { for (const it of o) { const v = find(it); if (v) return v; } return ''; }
+                            if (typeof o === 'object') {
+                                for (const k of ['markdown','content','text','md','resume_md','ai_analysis_md']) { const v = o[k]; if (typeof v === 'string' && v.trim()) return v; }
+                                const vals = Object.values(o);
+                                for (const v of vals) { const r = find(v); if (r) return r; }
+                            }
+                            return '';
+                        };
+                        md = find(obj) || '';
+                    }
+                } else { md = s; }
+            } else { md = s; }
+        } catch { md = String(record.content ?? record.markdown_output ?? ''); }
         const parsed = extractSummaryFieldsFromMarkdown(md);
-        const candidate = record.candidate_name ?? parsed.candidate_name ?? '未命名候选人';
-        const job = record.job_title ?? parsed.job_title ?? '未知岗位';
-        const scoreVal = (record.match_score ?? parsed.match_score);
-        const scoreText = (scoreVal || scoreVal === 0) ? `${Math.round(Number(scoreVal))}%` : '未知';
+        const pickNonEmpty = (...args) => { for (const a of args) { if (a !== undefined && a !== null) { const s = String(a).trim(); if (s) return s; } } return ''; };
+        const candidate = pickNonEmpty(record.candidate_name, parsed.candidate_name, record.title, '未命名候选人');
+        const job = pickNonEmpty(record.job_title, parsed.job_title, '未知岗位');
+        const rawScore = (parsed.match_score != null ? parsed.match_score : (record.match_score ?? null));
+        const numScore = (() => {
+            if (rawScore === null || rawScore === undefined || rawScore === '') return null;
+            const n = parseInt(String(rawScore).trim(), 10);
+            if (Number.isFinite(n)) return Math.max(0, Math.min(100, n));
+            return null;
+        })();
+        const scoreText = (numScore !== null) ? `${Math.round(numScore)}%` : '未知';
         const typeText = (record.type ?? record.report_type) === 'resume' ? '简历分析' : '面试分析';
 
         document.getElementById('report-title').innerText = candidate;

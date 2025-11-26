@@ -1,230 +1,99 @@
-# 智能招聘分析系统 / AI Recruitment Analysis System
+# AI智能招聘分析系统 / AI Recruitment Analyzer
 
-一个基于AI的智能招聘分析系统，集成Coze工作流，提供简历分析和面试评估功能。
+面向招聘场景的生产级分析系统，支持简历智能解析、面试记录与报告管理。系统提供本地静态站与本地 API 联调，支持 Supabase 认证与云端持久化。
 
-An AI-powered recruitment analysis system integrated with Coze workflows, providing resume analysis and interview evaluation features.
+## 功能特性
 
-## 🚀 功能特性 / Features
+- 简历分析：解析 PDF/DOC/DOCX/TXT/RTF/PNG/JPG，自动生成岗位匹配报告
+- 面试记录：进入面试页可录音、转写、做备注，保存为面试记录报告
+- 备注模式：在简历内容中选中并添加备注，支持编辑/删除，记录页可持续编辑
+- 报告管理：我的报告支持筛选、查看、导出（Markdown/Word/PDF），云端或本地存储
+- 认证与设置：Supabase 登录；模型与提示词设置；安全过滤与表格滚动增强
 
-### 简历分析 / Resume Analysis
-- 📄 支持多种格式：PDF、DOC、DOCX、TXT
-- 🎯 智能匹配度分析
-- 💡 技能差距识别
-- ❓ 面试问题推荐
-- 📈 改进建议
+## 本地开发
 
-### 面试分析 / Interview Analysis
-- 📝 面试录音转录文件分析
-- 📊 面试表现评估
-- 💬 回答质量分析
-- 🗣️ 沟通能力评价
-- ⭐ 综合评分
-
-### 用户认证 / User Authentication
-- 🔐 邮箱注册登录
-- 🔑 密码重置功能
-- 👤 用户状态管理
-- 🛡️ 安全认证流程
-
-### 用户体验 / User Experience
-- 🌐 中英文双语支持
-- 📱 响应式设计
-- 🎨 现代化UI界面
-- ⚡ 快速文件上传
-- 📥 结果导出功能
-
-## 🛠️ 技术栈 / Tech Stack
-
-- **前端**: HTML5, CSS3, JavaScript (ES6+)
-- **UI框架**: 原生CSS + Font Awesome图标
-- **API集成**: Coze工作流API
-- **用户认证**: Supabase Auth
-- **部署**: Vercel
-- **开发服务器**: http-server
-
-## 📦 安装和运行 / Installation & Setup
-
-### 本地开发 / Local Development
-
-1. 克隆项目 / Clone the repository
-```bash
-git clone <repository-url>
-cd 简历分析
+1. 安装依赖
 ```
-
-2. 安装依赖 / Install dependencies
-```bash
 npm install
 ```
-
-3. 启动开发服务器 / Start development server
-```bash
+2. 启动静态站（端口 4321）
+```
 npm run dev
 ```
-
-4. 打开浏览器访问 / Open browser and visit
+3. 打开首页
 ```
-http://localhost:4321
-```
-
-### 生产构建 / Production Build
-
-```bash
-npm run build
+http://127.0.0.1:4321/index.html
 ```
 
-## 🚀 Vercel部署 / Vercel Deployment
+> 说明：首页已移除“面试分析”功能卡片与导航入口。如需进入面试相关页面，请使用下述直达链接。
 
-### 方法一：通过Vercel CLI / Method 1: Via Vercel CLI
-
-1. 安装Vercel CLI
-```bash
-npm i -g vercel
+### 页面直达链接
+- 进入面试（录音/转写/备注）
+```
+http://127.0.0.1:4321/进入面试-AI招聘分析.html
+```
+- 面试记录（查看与导出，备注可编辑并持久化）
+```
+http://127.0.0.1:4321/面试记录-AI招聘分析.html
 ```
 
-2. 登录Vercel
-```bash
-vercel login
+## 本地 API 联调（端口 4000）
+
+在需要后端解析/持久化联调时启动：
 ```
-
-3. 部署项目
-```bash
-vercel
+npm run api:dev
 ```
+可用端点：
+- `/api/resume-analyze` 简历分析
+- `/api/interview-analyze` 面试分析
+- `/api/reports-save` 报告保存
+- `/api/reports-list` 报告列表
+- `/api/reports-delete` 报告删除
+- `/api/transcribe` 语音转写（需配置相应 Key）
 
-### 方法二：通过GitHub集成 / Method 2: Via GitHub Integration
+## 配置说明
 
-1. 将代码推送到GitHub仓库
-2. 在Vercel控制台导入GitHub项目
-3. 配置构建设置（已包含vercel.json配置）
-4. 部署完成
+### 环境变量（本地）
+在根目录创建 `.env`（参考 `.env.example`）：
+- `SUPABASE_URL`、`SUPABASE_ANON_KEY`：Supabase 项目参数
+- `COZE_PAT`：Coze 访问令牌
+- `COZE_RESUME_WORKFLOW_ID`、`COZE_INTERVIEW_WORKFLOW_ID`：工作流 ID
 
-## ⚙️ 配置说明 / Configuration
+### 前端设置
+- `public/js/supabase.js` 使用 `window.__SUPABASE_CONFIG` 注入的配置初始化
+- `public/js/settings.js` 提供模型与提示词设置界面
+- `public/js/api.js` 封装 Coze 与本地 API 调用
 
-### API配置 / API Configuration
+## 关键页面与脚本
+- 首页：`public/index.html`
+  - 导航栏已移除“面试分析”入口
+  - 功能卡片已移除“面试分析”卡片
+- 进入面试页：`public/进入面试-AI招聘分析.html`
+  - 录音与转写逻辑：`public/js/interview.js:323-407`
+  - 备注模式：`public/js/interview.js:1115-1245`
+- 面试记录页：`public/面试记录-AI招聘分析.html`
+  - AI综合分析完整展示（取消高度限制）：样式在该页内
+  - 备注持久化：`public/js/interview.js:1262-1298`
+- 简历分析页逻辑与容器增强：`public/js/main.js:2625-2662`
 
-在 `js/api.js` 文件中配置Coze API：
+## 使用指引
+- 简历分析：在首页选择“简历分析”，上传文件与 JD，生成报告并可保存/导出
+- 面试记录：通过直达链接进入面试页进行录音/转写与备注，再保存到“我的报告”
+- “我的报告”：登录后查看、筛选、导出所有保存的报告
 
-```javascript
-const API_CONFIG = {
-    baseURL: 'https://api.coze.cn/v1/workflow/run',
-    token: 'your-api-token',
-    spaceId: '7506054716972220443',
-    workflows: {
-        resume: '7513777402993016867',
-        interview: '7514884191588745254'
-    }
-};
-```
+## 安全与合规
+- 线上环境请勿在前端暴露密钥，建议通过后端代理调用外部 API
+- 文件大小与类型已校验，避免无效文件造成解析失败
+- 所有 HTML 渲染均使用 DOMPurify 进行安全过滤
 
-### Supabase配置 / Supabase Configuration
+## 部署
+- Vercel（推荐）：配置 `Output Directory = public`，并在项目设置中添加所需环境变量
+- 其他平台：确保静态资源目录指向 `public`；后端 API 路由按需挂载
 
-在 `js/supabase.js` 文件中配置Supabase项目：
-
-```javascript
-const SUPABASE_URL = 'https://your-project-ref.supabase.co';
-const SUPABASE_ANON_KEY = 'your_supabase_anon_key_here';
-```
-
-获取配置信息：
-1. 登录 [Supabase控制台](https://supabase.com/dashboard)
-2. 进入 Project Settings -> API
-3. 复制 Project URL 和 anon public key
-
-### 环境变量 / Environment Variables
-
-复制 `.env.example` 为 `.env` 并配置：
-- `COZE_PAT`: Coze API访问令牌
-- `COZE_RESUME_WORKFLOW_ID`: 简历分析工作流ID
-- `COZE_INTERVIEW_WORKFLOW_ID`: 面试分析工作流ID
-
-Vercel部署时可配置环境变量：
-- `COZE_API_TOKEN`: Coze API访问令牌
-- `COZE_SPACE_ID`: Coze空间ID
-
-## 📁 项目结构 / Project Structure
-
-```
-简历分析/
-├── index.html          # 主页面
-├── package.json        # 项目配置
-├── vercel.json         # Vercel部署配置
-├── README.md           # 项目说明
-├── styles/
-│   └── main.css        # 主样式文件
-└── js/
-    ├── main.js         # 主逻辑文件
-    ├── api.js          # API调用模块
-    └── i18n.js         # 国际化支持
-```
-
-## 🔧 使用说明 / Usage Guide
-
-### 简历分析 / Resume Analysis
-
-1. 点击"简历分析"功能卡片
-2. 上传简历文件（支持PDF、DOC、DOCX、TXT格式）
-3. 输入详细的岗位职责描述
-4. 点击"开始分析简历"按钮
-5. 等待AI分析完成
-6. 查看分析结果并可下载报告
-
-### 面试分析 / Interview Analysis
-
-1. 点击"面试分析"功能卡片
-2. 上传面试录音转录PDF文件
-3. 输入面试者姓名
-4. （可选）输入录音链接
-5. 点击"开始分析面试"按钮
-6. 等待AI分析完成
-7. 查看分析结果并可下载报告
-
-## 🔒 安全说明 / Security Notes
-
-- API令牌已配置在前端代码中，仅用于演示
-- 生产环境建议使用后端代理API调用
-- 文件上传大小限制为500MB
-- 支持的文件格式已进行验证
-
-## 🐛 故障排除 / Troubleshooting
-
-### 常见问题 / Common Issues
-
-1. **API调用失败**
-   - 检查网络连接
-   - 验证API令牌是否有效
-   - 确认工作流ID是否正确
-
-2. **文件上传失败**
-   - 检查文件格式是否支持
-   - 确认文件大小不超过500MB
-   - 尝试重新选择文件
-
-3. **页面显示异常**
-   - 清除浏览器缓存
-   - 检查JavaScript控制台错误
-   - 确认所有资源文件加载正常
-
-## 📞 技术支持 / Technical Support
-
-如遇到问题，请检查：
-1. 浏览器控制台错误信息
-2. 网络连接状态
-3. API服务状态
-
-## 📄 许可证 / License
-
+## 许可证
 MIT License
 
-## 🤝 贡献 / Contributing
-
-欢迎提交Issue和Pull Request来改进项目。
-
-Welcome to submit Issues and Pull Requests to improve the project.
-
----
-
-**开发完成时间**: 2024年12月
-**版本**: v1.0.0
-**状态**: 生产就绪 ✅
-chore: trigger Vercel production build after setting Output Directory=public ($(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') )
+## 变更记录
+- 移除首页“面试分析”卡片与导航入口
+- 面试记录页 AI 综合分析内容取消高度限制，完整展示
+- 录音无识别结果时不再插入“未配置API”占位提示，保持静默录音

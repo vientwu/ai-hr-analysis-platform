@@ -14,7 +14,7 @@ const app = express();
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS,GET');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-OpenRouter-Key, X-Provider-Key, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-OpenRouter-Key, X-Provider-Key, X-Provider, Accept');
   next();
 });
 
@@ -32,13 +32,21 @@ app.all('/api/interview-analyze', async (req, res) => {
 });
 
 app.all('/api/reports-save', async (req, res) => {
-  const mod = await import('./api/reports-save.js');
-  return mod.default(req, res);
+  try {
+    const mod = await import('./api/reports-save.js');
+    return mod.default(req, res);
+  } catch (e) {
+    res.status(500).json({ error: e?.message || 'Internal Server Error' });
+  }
 });
 
 app.all('/api/reports-list', async (req, res) => {
-  const mod = await import('./api/reports-list.js');
-  return mod.default(req, res);
+  try {
+    const mod = await import('./api/reports-list.js');
+    return mod.default(req, res);
+  } catch (e) {
+    res.status(500).json({ error: e?.message || 'Internal Server Error' });
+  }
 });
 
 app.all('/api/reports-delete', async (req, res) => {
@@ -58,6 +66,11 @@ app.all('/api/llm-chat', async (req, res) => {
 
 app.all('/api/parse-doc', async (req, res) => {
   const mod = await import('./api/parse-doc.js');
+  return mod.default(req, res);
+});
+
+app.all('/api/transcribe', async (req, res) => {
+  const mod = await import('./api/transcribe.js');
   return mod.default(req, res);
 });
 
@@ -122,6 +135,48 @@ app.get('/report.html', (req, res) => {
   } else {
     res.status(404).send('Not Found');
   }
+});
+
+// 通用注入函数：为指定页面注入 Supabase 配置
+function serveHtmlWithInjection(res, absolutePath) {
+  let html = fs.readFileSync(absolutePath, 'utf8');
+  const supabaseUrl = process.env.SUPABASE_URL || STATIC_SECRETS.SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || STATIC_SECRETS.SUPABASE_ANON_KEY || '';
+  const injection = `\n<script>\n  window.__SUPABASE_CONFIG = { url: ${JSON.stringify(supabaseUrl)}, anonKey: ${JSON.stringify(supabaseAnonKey)} };\n</script>\n`;
+  const supabaseJsTag = '<script src="js/supabase.js"></script>';
+  if (html.includes(supabaseJsTag)) {
+    html = html.replace(supabaseJsTag, `${injection}${supabaseJsTag}`);
+  } else if (html.includes('</head>')) {
+    html = html.replace('</head>', `${injection}</head>`);
+  } else if (html.includes('</body>')) {
+    html = html.replace('</body>', `${injection}</body>`);
+  } else {
+    html += injection;
+  }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+}
+
+// 为中文页面路径提供注入支持
+app.get(['/进入面试-AI招聘分析.html', '/面试记录-AI招聘分析.html'], (req, res) => {
+  const page = req.path.replace(/^\//, '');
+  const pagePath = path.join(rootDir, 'public', page);
+  if (fs.existsSync(pagePath)) {
+    return serveHtmlWithInjection(res, pagePath);
+  }
+  res.status(404).send('Not Found');
+});
+
+// 简短别名路由
+app.get('/interview', (req, res) => {
+  const pagePath = path.join(rootDir, 'public', '进入面试-AI招聘分析.html');
+  if (fs.existsSync(pagePath)) return serveHtmlWithInjection(res, pagePath);
+  res.status(404).send('Not Found');
+});
+app.get('/interview-record', (req, res) => {
+  const pagePath = path.join(rootDir, 'public', '面试记录-AI招聘分析.html');
+  if (fs.existsSync(pagePath)) return serveHtmlWithInjection(res, pagePath);
+  res.status(404).send('Not Found');
 });
 
 const PORT = process.env.API_DEV_PORT ? Number(process.env.API_DEV_PORT) : 4000;
