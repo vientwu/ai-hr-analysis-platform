@@ -1,4 +1,4 @@
-(() => {
+window.NewAnalysisInit = function() {
   try { window._newAnalysisLoaded = true; } catch {}
   const fileInput = document.getElementById('new-resume-files');
   const fileInfo = document.getElementById('new-resume-files-info');
@@ -24,16 +24,20 @@
   const promptResumeInput = document.getElementById('prompt-resume');
   const promptJdInput = document.getElementById('prompt-jd');
   const promptMatchInput = document.getElementById('prompt-match');
+  const promptInterviewInput = document.getElementById('prompt-interview');
   const loadDefaultPromptsBtn = document.getElementById('load-default-prompts');
   const settingsSave = document.getElementById('settings-save');
   const testConnBtn = document.getElementById('test-conn');
   const connStatus = document.getElementById('conn-status');
   let resumeTexts = [];
   let resumeMarkdown = '';
-  let prompts = { resumeInfo: '', matchInterview: '', jdPortrait: '' };
+  let prompts = { resumeInfo: '', matchInterview: '', jdPortrait: '', interviewComprehensive: '' };
   const defaultModel = 'anthropic/claude-3.5-sonnet';
-  let userSettings = { provider: 'openrouter', apiKey: '', keys: { openrouter: '', openai: '', anthropic: '', deepseek: '' }, model: defaultModel, customModel: '', prompts: { resumeInfo: '', matchInterview: '', jdPortrait: '' } };
-  const API_BASE = (window.location.port === '4321') ? 'http://127.0.0.1:4000' : '';
+  let userSettings = { provider: 'openrouter', apiKey: '', keys: { openrouter: '', openai: '', anthropic: '', deepseek: '' }, model: defaultModel, customModel: '', prompts: { resumeInfo: '', matchInterview: '', jdPortrait: '', interviewComprehensive: '' } };
+  const API_BASE_OVERRIDE = (typeof window !== 'undefined' && window.localStorage)
+    ? (window.localStorage.getItem('API_BASE_OVERRIDE') || '')
+    : '';
+  const API_BASE = API_BASE_OVERRIDE || ((window.location.port === '4321' || window.location.port === '5173') ? 'http://127.0.0.1:4000' : '');
   const MODEL_CATALOG = [
     { v: 'anthropic/claude-3.5-sonnet', t: 'Anthropic: Claude 3.5 Sonnet' },
     { v: 'anthropic/claude-3.7-sonnet', t: 'Anthropic: Claude 3.7 Sonnet' },
@@ -117,16 +121,18 @@
   const loadPrompts = async () => {
     try {
       const saved = await getUserKey();
-      if (saved && saved.prompts && (saved.prompts.resumeInfo || saved.prompts.matchInterview || saved.prompts.jdPortrait)) {
+      if (saved && saved.prompts) {
         prompts.resumeInfo = saved.prompts.resumeInfo || '';
         prompts.matchInterview = saved.prompts.matchInterview || '';
         prompts.jdPortrait = saved.prompts.jdPortrait || '';
+        prompts.interviewComprehensive = saved.prompts.interviewComprehensive || '';
         if (promptStatus) promptStatus.innerText = '已加载（自定义）';
         return;
       }
       prompts.resumeInfo = '';
       prompts.matchInterview = '';
       prompts.jdPortrait = '';
+      prompts.interviewComprehensive = '';
       if (promptStatus) promptStatus.innerText = '未设置';
     } catch {
       if (promptStatus) promptStatus.innerText = '加载失败';
@@ -167,6 +173,9 @@
     if (promptMatchInput) {
       promptMatchInput.value = (userSettings.prompts && userSettings.prompts.matchInterview) ? userSettings.prompts.matchInterview : prompts.matchInterview;
     }
+    if (promptInterviewInput) {
+      promptInterviewInput.value = (userSettings.prompts && userSettings.prompts.interviewComprehensive) ? userSettings.prompts.interviewComprehensive : prompts.interviewComprehensive;
+    }
     if (settingsModal) settingsModal.style.display = 'block';
     try {
       settingsModal.style.background = 'rgba(0,0,0,0.25)';
@@ -192,15 +201,18 @@
     userSettings.keys[userSettings.provider] = userSettings.apiKey;
     userSettings.model = modelSelect.value;
     userSettings.customModel = customModelInput.value.trim();
+    const prevPrompts = (userSettings.prompts && typeof userSettings.prompts === 'object') ? userSettings.prompts : {};
     userSettings.prompts = {
       resumeInfo: promptResumeInput.value,
       jdPortrait: promptJdInput.value,
-      matchInterview: promptMatchInput.value
+      matchInterview: promptMatchInput.value,
+      interviewComprehensive: promptInterviewInput ? promptInterviewInput.value : (prevPrompts.interviewComprehensive || '')
     };
     await setUserKey(userSettings);
     prompts.resumeInfo = userSettings.prompts.resumeInfo || prompts.resumeInfo;
     prompts.jdPortrait = userSettings.prompts.jdPortrait || prompts.jdPortrait;
     prompts.matchInterview = userSettings.prompts.matchInterview || prompts.matchInterview;
+    prompts.interviewComprehensive = userSettings.prompts.interviewComprehensive || prompts.interviewComprehensive;
     closeSettings();
     showToast('已保存设置');
   });
@@ -211,6 +223,7 @@
     promptResumeInput.value = '';
     promptMatchInput.value = '';
     promptJdInput.value = '';
+    if (promptInterviewInput) promptInterviewInput.value = '';
     if (promptStatus) promptStatus.innerText = '未设置';
   });
 
@@ -255,54 +268,52 @@
       if (resp.ok) {
         const j = await resp.json();
         txt = String(j.text || '');
+        if (txt && txt.trim()) return txt;
       }
-      if (txt && txt.trim()) return txt;
-      const ocr = await (async () => {
-        try {
-          const pdfjs = window.pdfjsLib;
-          const Tesseract = window.Tesseract;
-          if (!pdfjs || !Tesseract) return '';
-          const url = URL.createObjectURL(file);
-          const doc = await pdfjs.getDocument(url).promise;
-          let out = '';
-          const pages = Math.min(3, doc.numPages || 0);
-          showToast(`正在识别PDF（共${doc.numPages}页，处理前${pages}页）`);
-          const start = Date.now();
-          for (let i = 1; i <= pages; i++) {
-            const page = await doc.getPage(i);
-            // 先尝试读取文本层（比OCR更快）
-            try {
-              const tc = await page.getTextContent();
-              const textFast = (tc && tc.items) ? tc.items.map(it => it.str).join('\n') : '';
-              if (textFast && textFast.trim().length > 40) {
-                out += textFast.trim() + '\n\n';
-                showToast('已提取文本层，跳过OCR');
-                continue;
-              }
-            } catch {}
-            const viewport = page.getViewport({ scale: 1.25 });
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = Math.ceil(viewport.width);
-            canvas.height = Math.ceil(viewport.height);
-            await page.render({ canvasContext: ctx, viewport }).promise;
-            // 快速模式：优先英文，结果过短时再尝试中英混合（可能下载语言包，速度较慢）
-            let res = await Tesseract.recognize(canvas, 'eng', { logger: () => {} }).catch(() => null);
-            let text = (res && res.data && res.data.text ? res.data.text : '');
-            if (!text || text.trim().length < 20) {
-              res = await Tesseract.recognize(canvas, 'chi_sim+eng', { logger: () => {}, langPath: 'https://tessdata.projectnaptha.com/4.0.0' }).catch(() => null);
-              text = (res && res.data && res.data.text ? res.data.text : '');
-            }
-            out += (res && res.data && res.data.text ? res.data.text : '') + '\n\n';
-            showToast(`OCR第${i}/${pages}页完成`);
-            // 快速超时保护
-            if (Date.now() - start > 18000) break;
+      try {
+        const pdfjs = window.pdfjsLib; const Tesseract = window.Tesseract; if (!pdfjs || !Tesseract) return '';
+        const url = URL.createObjectURL(file);
+        const doc = await pdfjs.getDocument(url).promise;
+        let out = '';
+        const pages = Math.min(5, doc.numPages || 0);
+        const start = Date.now();
+        for (let i = 1; i <= pages; i++) {
+          const page = await doc.getPage(i);
+          try {
+            const tc = await page.getTextContent();
+            const fast = (tc && tc.items) ? tc.items.map(it => it.str).join('\n') : '';
+            if (fast && fast.trim().length > 40) { out += fast.trim() + '\n\n'; continue; }
+          } catch {}
+          const viewport = page.getViewport({ scale: 1.25 });
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          let res = await Tesseract.recognize(canvas, 'eng', { logger: () => {} }).catch(() => null);
+          let text = (res && res.data && res.data.text ? res.data.text : '');
+          if (!text || text.trim().length < 20) {
+            res = await Tesseract.recognize(canvas, 'chi_sim+eng', { logger: () => {}, langPath: 'https://tessdata.projectnaptha.com/4.0.0' }).catch(() => null);
+            text = (res && res.data && res.data.text ? res.data.text : '');
           }
-          URL.revokeObjectURL(url);
-          return out.trim();
-        } catch { return ''; }
-      })();
-      return ocr || '';
+          out += (res && res.data && res.data.text ? res.data.text : '') + '\n\n';
+          if (Date.now() - start > 25000) break;
+        }
+        URL.revokeObjectURL(url);
+        return out.trim();
+      } catch { return ''; }
+    } catch { return ''; }
+  };
+
+  const readImage = async (file) => {
+    try {
+      const Tesseract = window.Tesseract; if (!Tesseract) return '';
+      const url = URL.createObjectURL(file);
+      let res = await Tesseract.recognize(url, 'chi_sim+eng', { logger: () => {}, langPath: 'https://tessdata.projectnaptha.com/4.0.0' }).catch(async () => {
+        return await Tesseract.recognize(url, 'eng', { logger: () => {}, langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+      });
+      URL.revokeObjectURL(url);
+      return String(res && res.data && res.data.text ? res.data.text : '').trim();
     } catch { return ''; }
   };
 
@@ -311,6 +322,7 @@
     if (name.endsWith('.txt')) return await readTxt(file);
     if (name.endsWith('.docx')) return await readDocx(file);
     if (name.endsWith('.pdf')) return await readPdf(file);
+    if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg')) return await readImage(file);
     return '';
   };
 
@@ -399,14 +411,23 @@
       const resp = await fetch(url, {
         method: 'POST',
         mode: 'cors',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Provider-Key': useKey },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Provider': provider, 'X-Provider-Key': useKey },
         body: JSON.stringify({ provider, model: useModel, messages, max_tokens: maxTokens, temperature: 0.2 })
       });
       if (!resp.ok) { const t = await resp.text(); throw new Error(t || 'LLM调用失败'); }
       const json = await resp.json();
-      const choice = (json.choices && json.choices[0]) ? json.choices[0] : null;
-      const md = choice && choice.message && choice.message.content ? choice.message.content : '';
-      const finish = choice && choice.finish_reason ? choice.finish_reason : (json.finish_reason || '');
+      let md = '';
+      if (json && json.ok && typeof json.text === 'string') {
+        md = json.text || '';
+      } else if (json && json.choices && json.choices[0] && json.choices[0].message && typeof json.choices[0].message.content === 'string') {
+        md = json.choices[0].message.content || '';
+      } else if (typeof json.text === 'string') {
+        md = json.text || '';
+      } else {
+        md = '';
+      }
+      const choice = (json && json.choices && json.choices[0]) ? json.choices[0] : null;
+      const finish = choice && choice.finish_reason ? choice.finish_reason : (json && json.finish_reason ? json.finish_reason : '');
       return { md, finish };
     } catch (e) {
       showToast(`LLM调用失败：${e?.message || '未知错误'}`);
@@ -438,7 +459,7 @@
       const resp = await fetch(url, {
         method: 'POST',
         mode: 'cors',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Provider-Key': key },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Provider': provider, 'X-Provider-Key': key },
         body: JSON.stringify({ provider, model, messages, max_tokens: 8, temperature: 0 })
       });
       if (!resp.ok) {
@@ -446,7 +467,7 @@
         throw new Error(t || '代理调用失败');
       }
       const json = await resp.json();
-      const ok = !!(json && json.choices && json.choices.length > 0);
+      const ok = !!(json && (json.ok === true || (json.choices && json.choices.length > 0)));
       setConnStatus(ok);
       showToast(ok ? '连接成功' : '连接失败');
     } catch (e) {
@@ -567,46 +588,32 @@
     let candidate_name = null;
     let job_title = null;
     let match_score = null;
-    const grabLine = (regex) => {
-      for (const line of lines) {
-        const m = line.match(regex);
-        if (m && m[1]) return m[1].trim();
-      }
-      return '';
-    };
-    candidate_name = grabLine(/^(?:\s*[-*]?\s*)?(?:姓名|候选人|面试者|Name|Candidate|Interviewee)\s*[：:]\s*([^\n]+)/i) || (text.match(/(?:面试者|姓名|Name|Interviewee)\s*[:：]\s*([^\n]+)/i)?.[1] || '').trim() || null;
-    job_title = grabLine(/^(?:\s*[-*]?\s*)?(?:岗位|职位|岗位名称|职位名称|Job\s*Title|Position|Role)\s*[：:]\s*([^\n]+)/i) || (text.match(/(?:岗位|职位|Job\s*Title|Position|Role)\s*[:：]\s*([^\n]+)/i)?.[1] || '').trim() || null;
-    let scoreStr = grabLine(/^(?:\s*[-*]?\s*)?(?:综合匹配度|总体匹配度|总匹配度|综合匹配)\s*[：:]\s*([0-9]{1,3})\s*%/i);
-    if (!scoreStr) {
-      const sectionRe = /评估结论|候选人详细评估|综合评估|Evaluation|Summary/i;
-      for (let i = 0; i < lines.length; i++) {
-        if (sectionRe.test(lines[i])) {
-          for (let j = i; j < Math.min(i + 20, lines.length); j++) {
-            const l = lines[j];
-            if (/^\|/.test(l)) continue;
-            const m = l.match(/(?:综合匹配度|匹配度)\s*[：:]\s*([0-9]{1,3})\s*%/i);
-            if (m && m[1]) { scoreStr = m[1]; break; }
-          }
-          if (scoreStr) break;
-        }
-      }
-    }
-    if (!scoreStr) {
+    const strip = (s) => String(s || '').replace(/<br\s*\/>/gi, ' ').replace(/<br>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const validJob = (s) => { const t = strip(s); if (!t) return ''; if (t.length > 40) return ''; if (/[•\d]\s*[\.)]/.test(t)) return ''; if (/(匹配度|评估|结论|建议|差距|不足|能力|稳定|经验|画像|要求)/i.test(t)) return ''; return t; };
+    const grabLine = (regex) => { for (const line of lines) { if (/^\|/.test(line)) continue; const m = line.match(regex); if (m && m[1]) return strip(m[1]); } return ''; };
+    const grabTable = (keys) => { for (const line of lines) { if (!/^\|/.test(line)) continue; const cols = line.split('|').map(s=>s.trim()); for (let i=0;i<cols.length-1;i++){ const k=cols[i]; const v=cols[i+1]; if (new RegExp(`^(?:${keys.join('|')})$`,'i').test(k)) { const out=strip(v); if (out) return out; } } } return ''; };
+    candidate_name = grabLine(/^(?:\s*[-*]?\s*)?(?:姓名|候选人|面试者|Name|Candidate|Interviewee)\s*[：:]\s*([^\n]+)/i);
+    if (!candidate_name) { const t = text.match(/(?:候选人|面试者|姓名|Name|Candidate|Interviewee)\s*[:：]\s*([^\n]+)/i); if (t && t[1]) candidate_name = strip(t[1]); if (!candidate_name) candidate_name = grabTable(['姓名','候选人','面试者','Name','Candidate','Interviewee']); }
+    const jobKeys = ['面试岗位','应聘岗位','招聘岗位','岗位名称','职位名称','Job\\s*Title','Position','Role'];
+    job_title = grabLine(new RegExp(`^(?:\\s*[-*]?\\s*)?(?:${jobKeys.join('|')})\\s*[：:]\\s*([^\\n]+)$`, 'i'));
+    if (!job_title) job_title = grabTable(['面试岗位','应聘岗位','招聘岗位','岗位名称','职位名称']);
+    if (!job_title) { const g = text.match(new RegExp(`(?:${jobKeys.join('|')})\s*[:：]\s*([^\n]+)`, 'i')); if (g && g[1]) { const v = validJob(g[1]); if (v) job_title = v; } }
+    if (!job_title) {
       for (const line of lines) {
         if (/^\|/.test(line)) continue;
-        if (/命中率|命中数|维度|得分|分值|points|硬性|V-Raise/i.test(line)) continue;
-        const m = line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|综合匹配)\s*[：:]\s*([0-9]{1,3})\s*%/i);
-        if (m && m[1]) { scoreStr = m[1]; break; }
+        const h = line.match(/^#{1,6}\s*(.+)$/);
+        const src = (h && h[1]) ? h[1] : line;
+        const m2 = src.match(/([^\n]+?)\s*岗位(?:人才评估|评估报告|报告|画像)?/);
+        if (m2 && validJob(m2[1])) { job_title = validJob(m2[1]); break; }
       }
     }
-    if (!scoreStr) {
-      const all = Array.from(text.matchAll(/(?:匹配度|综合匹配)\s*[:：]\s*([0-9]{1,3})\s*%/gi)).map(m => m[1]);
-      if (all.length) scoreStr = all[all.length - 1];
-    }
-    if (scoreStr) {
-      const num = Math.max(0, Math.min(100, parseInt(scoreStr, 10)));
-      if (!Number.isNaN(num)) match_score = num;
-    }
+    if (!job_title) { const mm = Array.from(text.matchAll(new RegExp(`(?:${jobKeys.join('|')})\\s*[:：]?\\s*([^\\n%|]{2,40})`, 'gi'))).map(m => strip(m[1])).filter(x => validJob(x)); if (mm.length) job_title = mm[mm.length - 1]; }
+    let scoreStr = grabLine(/^(?:\s*[-*]?\s*)?(?:综合匹配度|总体匹配度|总匹配度|岗位匹配度|综合评分|综合匹配)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+    if (!scoreStr) { const cell = grabTable(['综合匹配度','总体匹配度','总匹配度','岗位匹配度','综合评分']); if (cell) { const m = cell.match(/([0-9]{1,3})\s*%/); if (m) scoreStr = m[1]; } }
+    if (!scoreStr) { const sectionRe = /评估结论|候选人详细评估|综合评估|Evaluation|Summary/i; for (let i=0;i<lines.length;i++){ if(sectionRe.test(lines[i])){ for(let j=i;j<Math.min(i+20,lines.length);j++){ const l=lines[j]; if(/^\|/.test(l)) continue; let m=l.match(/(?:综合匹配度|岗位匹配度|匹配度|综合评分)\s*[：:]\s*([0-9]{1,3})\s*%/i); if(!m) m=l.match(/(?:综合匹配度|岗位匹配度|匹配度|综合评分)\s*([0-9]{1,3})\s*%/i); if(m&&m[1]){ scoreStr=m[1]; break; } } if(scoreStr) break; } }
+    if (!scoreStr) { for (const line of lines) { if (/^\|/.test(line)) continue; if (/命中率|命中数|维度|得分|分值|points|硬性|V-Raise/i.test(line)) continue; let m=line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*[：:]\s*([0-9]{1,3})\s*%/i); if(!m) m=line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*([0-9]{1,3})\s*%/i); if(m&&m[1]){ scoreStr=m[1]; break; } } }
+    if (!scoreStr) { const all=Array.from(text.matchAll(/(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*[:：]?\s*([0-9]{1,3})\s*%/gi)).map(m=>m[1]); if(all.length) scoreStr=all[all.length-1]; }
+    if (scoreStr) { const num=Math.max(0,Math.min(100,parseInt(scoreStr,10))); if(!Number.isNaN(num)) match_score=num; }
     return { candidate_name, job_title, match_score };
   };
 
@@ -665,7 +672,7 @@
       try { txt = await parseFile(f); } catch { txt = ''; }
       resumeTexts.push(txt);
       const len = (txt || '').trim().length;
-      results.push(`${f.name} (${Math.round(f.size/1024)}KB) → ${len > 0 ? `解析成功，${len} 字符` : '解析失败，请使用 DOCX/TXT 或文本型 PDF'}`);
+      results.push(`${f.name} (${Math.round(f.size/1024)}KB) → ${len > 0 ? `解析成功，${len} 字符` : '解析失败，请使用 DOCX/TXT/PDF/RTF/PNG/JPG（扫描件需清晰）'}`);
     }
     fileInfo.innerText = results.join('\n');
     showToast(`已选择 ${files.length} 个文件`);
@@ -700,7 +707,7 @@
     const jd = jdInput.value.trim();
     if (!jd) { showToast('请输入JD'); return; }
     const validTexts = (resumeTexts || []).filter(t => t && t.trim().length > 0);
-    if (!validTexts.length) { showToast('简历解析失败，请上传DOCX/TXT或可复制文本的PDF'); return; }
+    if (!validTexts.length) { showToast('简历解析失败，请上传 DOCX/TXT/PDF/RTF/PNG/JPG，扫描件需清晰'); return; }
     showLoading('AI 正在分析...');
     try {
       const saved = await getUserKey();
@@ -751,14 +758,12 @@
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
   if (modelSelect) {
-    modelSelect.innerHTML = MODEL_CATALOG.map(m=>`<option value="${m.v}">${m.t}</option>`).join('');
+    modelSelect.innerHTML = MODEL_CATALOG.map(m => `<option value="${m.v}">${m.t}</option>`).join('');
   }
   loadPrompts();
-  if (testConnBtn) {
-    testConnBtn.addEventListener('click', testConnectivity);
-  }
+  if (testConnBtn) { testConnBtn.addEventListener('click', testConnectivity); }
   if (providerSelect) {
-    providerSelect.addEventListener('change', () => {
+    const refreshModels = () => {
       const p = providerSelect.value;
       const catalogs = {
         openrouter: MODEL_CATALOG,
@@ -778,10 +783,12 @@
         ]
       };
       const list = catalogs[p] || MODEL_CATALOG;
-      modelSelect.innerHTML = list.map(m=>`<option value="${m.v}">${m.t}</option>`).join('');
+      if (modelSelect) {
+        modelSelect.innerHTML = list.map(m => `<option value="${m.v}">${m.t}</option>`).join('');
+      }
       const savedKey = (userSettings.keys && userSettings.keys[p]) ? userSettings.keys[p] : '';
-      keyInput.value = savedKey || '';
-    });
+      if (keyInput) { keyInput.value = savedKey || ''; }
+    };
+    providerSelect.addEventListener('change', refreshModels);
   }
-})();
-  
+};

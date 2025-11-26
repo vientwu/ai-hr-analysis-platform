@@ -230,6 +230,29 @@ body {
     box-shadow: 0 6px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
 }
 
+/* 导航栏按钮尺寸与可读性 */
+.navbar .btn-secondary {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+    border-radius: 8px;
+}
+
+/* 登录弹窗按钮尺寸与可读性 */
+.login-panel .btn-primary,
+.login-panel .btn-secondary {
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    border-radius: 10px;
+}
+.login-panel .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+.login-panel .btn-secondary:hover {
+    background: #e5e7eb;
+}
+
 .btn-analyze {
     width: 100%;
     background: linear-gradient(135deg, #10b981, #059669);
@@ -866,6 +889,8 @@ textarea:focus, input:focus {
     gap: 0.75rem;
     margin-bottom: 0.5rem;
 }
+.report-header-left { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
+.report-header-left .report-summary { font-size:0.95rem; color:#6b7280; }
 .report-header h4 {
     margin: 0;
     font-size: 1.1rem;
@@ -873,6 +898,8 @@ textarea:focus, input:focus {
     color: #1f2937;
 }
 .report-header-actions { display: flex; align-items: center; gap: 0.5rem; }
+.status-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; color:#fff; background:#6b7280; }
+.time-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; color:#374151; background:#eef2ff; border:1px solid #e5e7eb; }
 .report-type {
     display: inline-block;
     background: #eef2ff;

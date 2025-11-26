@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面试记录 - AI招聘分析</title>
+    
+    <script>
+      window.__SUPABASE_CONFIG = {
+        url: 'https://bcsjxvhzoufzqzupygyl.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjc2p4dmh6b3VmenF6dXB5Z3lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3MDY3NDIsImV4cCI6MjA3NzI4Mjc0Mn0.hqW92LKNOVDN9QohpyhxdUNt5r1A4FbLzX8Vg-bihZc'
+      };
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .header-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            font-size: 14px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid white;
+        }
+        
+        .btn-primary {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .record-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .card-meta {
+            font-size: 13px;
+            color: #999;
+        }
+        
+        .card-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .section-content {
+            font-size: 14px;
+            line-height: 1.95;
+            color: #374151;
+            background: #f8fafc;
+            padding: 18px 22px;
+            border-radius: 12px;
+        }
+        #resumeReportContent { max-height: 600px; overflow-y: auto; }
+        .section-content h1 { font-size: 22px; font-weight: 700; margin: 8px 0 12px; color: #1f2937; }
+        .section-content h2 { font-size: 18px; font-weight: 700; margin: 14px 0 10px; color: #1f2937; }
+        .section-content h3 { font-size: 16px; font-weight: 600; margin: 12px 0 8px; color: #374151; }
+        .section-content p { margin: 8px 0 10px; }
+        .section-content ul, .section-content ol { padding-left: 22px; margin: 8px 0 12px; }
+        .section-content li { margin: 6px 0; }
+        .section-content table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; background: white; }
+        .section-content table th, .section-content table td { border: 1px solid #e5e7eb; padding: 10px 12px; text-align: left; }
+        .section-content table thead th { background: #eef2ff; color: #334155; }
+        .section-content hr { height: 1px; border: none; background: #e5e7eb; margin: 16px 0; }
+        .section-content blockquote { border-left: 4px solid #93c5fd; background: #f0f9ff; padding: 10px 12px; border-radius: 8px; color: #1e3a8a; margin: 10px 0; }
+        .section-content code { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 2px 6px; border-radius: 4px; }
+        .section-content pre { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px 12px; border-radius: 8px; overflow: auto; }
+        .transcript-text-block { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 18px; line-height: 1.95; white-space: pre-wrap; word-break: break-word; }
+        
+        .transcript-timeline { max-height: 600px; overflow-y: auto; }
+        #timelineBox { max-height: 600px; overflow-y: auto; }
+        .transcript-text-block { max-height: 600px; overflow-y: auto; }
+        
+        .transcript-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: white;
+            border-left: 3px solid #667eea;
+            border-radius: 4px;
+        }
+        
+        .transcript-time {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+        
+        .notes-box {
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .score-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .highlight-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .annotation-target { background:#fff3cd; }
+        .annotation-note { display:inline-block; margin-left:6px; padding:2px 6px; border-radius:12px; background:#fde68a; color:#5b3e00; font-size:12px; border:1px solid #f59e0b; }
+        .annotate-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+        .annotate-btn { padding:6px 10px; font-size:12px; background:#e5e7eb; color:#111827; border:1px solid #d1d5db; border-radius:8px; cursor:pointer; }
+        .annotate-btn.active { background:#fde68a; border-color:#f59e0b; color:#5b3e00; }
+        .ai-analysis-card .section-content { }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 面试记录详情</h1>
+        <div class="header-info">
+            <button class="btn btn-secondary" onclick="(function(){window.location.href='/my-reports.html';})()">返回我的报告</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- 简历分析报告 -->
+        <div class="record-card">
+          <div class="card-header">
+            <div class="card-title">📄 简历分析报告</div>
+            <div class="card-meta" id="resumeGenTime"></div>
+          </div>
+          <div class="card-body">
+                <div class="section full-width">
+                  <div class="section-title">📄 简历分析报告</div>
+                  <div class="annotate-toolbar"><button id="annotateToggleBtnRecord" class="annotate-btn">备注编辑模式</button></div>
+                  <div class="section-content" id="resumeReportContent"></div>
+                </div>
+          </div>
+        </div>
+        
+        <!-- 面试实录 -->
+        <div class="record-card">
+          <div class="card-header">
+            <div class="card-title">🎤 面试语音转文字记录</div>
+            <div class="card-meta"></div>
+          </div>
+          <div class="card-body">
+            <div class="section full-width">
+              <div class="section-title">💬 完整对话记录</div>
+              <div class="section-content transcript-timeline" id="timelineBox"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 面试笔记 -->
+        <div class="record-card">
+            <div class="card-header">
+                <div class="card-title">📝 面试笔记</div>
+                <div class="card-meta">记录人：面试官 | 记录时间：面试过程中</div>
+            </div>
+            <div class="card-body">
+                <div class="section full-width">
+                    <div class="section-content notes-box" id="notesBox">面试要点记录：
+
+【整体印象】
+- 自我介绍流畅，重点突出
+- 表达清晰，逻辑性强
+- 对产品有自己的思考和方法论
+
+【专业能力】
+✅ 产品方法论扎实，能够讲清楚从需求到上线的完整流程
+✅ 有数据意识，会用数据驱动决策
+✅ 案例描述详细，有具体数据和成果
+✅ 对用户研究有深入理解
+
+【亮点】
+⭐ B端产品从0到1经验，续费率85%是亮点
+⭐ 解决留存率问题的案例很好，体现了问题分析能力
+⭐ 有技术背景，能和开发高效沟通
+⭐ 展现出良好的用户同理心
+
+【待确认点】
+❓ 团队管理经验相对较少（只带过2-3人的小团队）
+❓ 跨部门协作的具体案例不够丰富
+❓ 对我们行业的了解程度一般
+
+【下一步建议】
+→ 建议进入下一轮面试
+→ 下轮重点考察：团队协作能力、抗压能力、行业理解
+→ 可以安排一个产品设计case面试
+
+【薪资期望】
+- 期望薪资：30-35K
+- 可接受范围：28K+</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI综合分析 -->
+        <div class="record-card ai-analysis-card">
+            <div class="card-header">
+                <div class="card-title">🤖 AI综合面试分析</div>
+                <div class="card-meta">分析时间：2025/11/19 15:10 | 基于简历+面试+笔记综合评估</div>
+            </div>
+            <div class="card-body">
+                <div class="section">
+                    <div class="section-title">🎯 综合评分</div>
+                    <div class="section-content ai-analysis-content">
+                        <div class="highlight-box">
+                            <h4>总分：<span class="score-badge">88分</span></h4>
+                            <p style="margin-top: 8px; color: #856404;">候选人综合表现优秀，专业能力扎实，建议进入下一轮面试。</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">📊 能力维度评分</div>
+                    <div class="section-content ai-analysis-content">
+                        <p><strong>产品思维：</strong><span class="score-badge">90分</span></p>
+                        <p style="font-size: 13px; color: #888; margin-left: 20px;">具备清晰的产品方法论，能够从用户需求出发设计解决方案</p>
+                        
+                        <p style="margin-top: 12px;"><strong>数据能力：</strong><span class="score-badge">85分</span></p>
+                        <p style="font-size: 13px; color: #888; margin-left: 20px;">熟悉数据分析工具，能用数据支撑决策和优化产品</p>
+                        
+                        <p style="margin-top: 12px;"><strong>沟通表达：</strong><span class="score-badge">88分</span></p>
+                        <p style="font-size: 13px; color: #888; margin-left: 20px;">表达清晰，逻辑性强，能够有效传达想法</p>
+                        
+                        <p style="margin-top: 12px;"><strong>技术理解：</strong><span class="score-badge">82分</span></p>
+                        <p style="font-size: 13px; color: #888; margin-left: 20px;">有一定技术背景，能够理解技术实现难度</p>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">⭐ 面试表现亮点</div>
+                    <div class="section-content ai-analysis-content">
+                        • 案例描述详细，有具体数据和成果（续费率85%）<br>
+                        • 对产品全生命周期有深入理解<br>
+                        • 展现出良好的用户同理心和问题解决能力<br>
+                        • 有B端产品从0到1的成功经验<br>
+                        • 数据驱动决策的意识强
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">⚠️ 需要关注的点</div>
+                    <div class="section-content ai-analysis-content">
+                        • 团队管理经验相对较少（仅带过2-3人小团队）<br>
+                        • 跨部门协作案例不够丰富<br>
+                        • 对目标行业的了解程度一般<br>
+                        • 建议下轮深入考察项目管理和团队协作能力
+                    </div>
+                </div>
+                
+                <div class="section full-width">
+                    <div class="section-title">💡 整体建议</div>
+                    <div class="section-content ai-analysis-content">
+                        <p><strong>录用建议：</strong>建议进入下一轮面试 ✅</p>
+                        <p style="margin-top: 10px;"><strong>理由分析：</strong></p>
+                        <p>候选人专业能力扎实，产品sense较好，有成功的B端产品经验。虽然团队管理经验相对不足，但考虑到岗位主要侧重产品能力，这个短板可以通过后续培养弥补。综合评估，该候选人符合岗位基本要求，建议进入下一轮考察。</p>
+                        
+                        <p style="margin-top: 15px;"><strong>下轮面试重点：</strong></p>
+                        <p>• 安排产品设计case面试，考察实际问题解决能力<br>
+                        • 深入了解团队协作和跨部门沟通经验<br>
+                        • 评估抗压能力和学习能力<br>
+                        • 可安排与团队成员交叉面试</p>
+                        
+                        <p style="margin-top: 15px;"><strong>薪资建议：</strong></p>
+                        <p>候选人期望30-35K，结合其经验和能力，建议offer范围28-32K</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+    <div class="action-buttons">
+            <button class="btn btn-primary" id="saveToMyReportsBtn">💾 保存到我的报告</button>
+            <button class="btn btn-primary" id="exportRecordDocxBtn">📥 导出 Word</button>
+            <button class="btn btn-secondary" id="exportRecordPdfBtn">🖨️ 导出 PDF</button>
+            <button class="btn btn-secondary" id="shareRecordBtn">📤 分享</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/supabase.js"></script>
+    <script src="/js/settings.js"></script>
+    <script src="/js/interview.js"></script>
+</body>
+</html>

@@ -10,6 +10,7 @@ let isLoggedIn = false;
 // 我的报告筛选状态
 let reportFilters = { starredOnly: false, type: 'all' };
 let reportFiltersInitialized = false;
+let reportMetaOverrides = {};
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
@@ -73,9 +74,13 @@ function setupEventListeners() {
 
 // 监听登录状态变化，更新UI
 window.addEventListener('auth-changed', (e) => {
-    const user = e.detail?.user || null;
-    isLoggedIn = !!user;
-    updateAuthUI(user);
+  const user = e.detail?.user || null;
+  isLoggedIn = !!user;
+  updateAuthUI(user);
+  try {
+    const mod = document.getElementById('my-reports-module');
+    if (mod && mod.style.display !== 'none') { loadMyReports(); }
+  } catch {}
 });
 
 function updateAuthUI(user) {
@@ -95,32 +100,25 @@ function updateAuthUI(user) {
 function setupFileUpload(inputId, uploadAreaId, handler) {
     const fileInput = document.getElementById(inputId);
     const uploadArea = document.getElementById(uploadAreaId);
-    
-    if (!fileInput || !uploadArea) return;
-    
-    // 文件选择事件
+    if (!fileInput) return;
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
             handler(file);
         }
     });
-    
-    // 拖拽事件
-    const dropArea = uploadArea.querySelector('.upload-area');
-    
+    if (!uploadArea) return;
+    const dropArea = uploadArea.querySelector && uploadArea.querySelector('.upload-area');
+    if (!dropArea) return;
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, preventDefaults, false);
     });
-    
     ['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(eventName, highlight, false);
     });
-    
     ['dragleave', 'drop'].forEach(eventName => {
         dropArea.addEventListener(eventName, unhighlight, false);
     });
-    
     dropArea.addEventListener('drop', function(e) {
         const files = e.dataTransfer.files;
         if (files.length > 0) {
@@ -192,9 +190,11 @@ function validateResumeForm() {
 // 面试分析表单验证
 function validateInterviewForm() {
     const analyzeBtn = document.getElementById('analyze-interview-btn');
+    const nameEl = document.getElementById('interviewee-name');
+    // 若不在首页的面试模块上下文（进入面试独立页），直接返回，交由 interview.js 控制按钮
+    if (!analyzeBtn && !nameEl) return;
     const hasFile = interviewFile !== null;
-    const hasName = document.getElementById('interviewee-name').value.trim().length > 0;
-    
+    const hasName = nameEl ? (nameEl.value.trim().length > 0) : true;
     if (analyzeBtn) {
         analyzeBtn.disabled = !(hasFile && hasName);
     }
@@ -205,19 +205,255 @@ function showHome() {
     document.querySelectorAll('.analysis-module').forEach(module => {
         module.style.display = 'none';
     });
-    document.querySelector('.feature-cards').style.display = 'grid';
+    var fc = document.getElementById('features'); if (fc) fc.style.display = 'block';
 }
 
 function showResumeAnalysis() {
-    document.querySelector('.feature-cards').style.display = 'none';
+    var fc = document.getElementById('features'); if (fc) fc.style.display = 'none';
     document.querySelectorAll('.analysis-module').forEach(module => {
         module.style.display = 'none';
     });
     document.getElementById('resume-module').style.display = 'block';
+    try {
+        try {
+            document.querySelectorAll('script[src*="new-analysis.js"]').forEach(function(node){ node.parentNode && node.parentNode.removeChild(node); });
+        } catch {}
+        if (!window._newResumeInitDone) {
+            initNewResumeFallback();
+            window._newResumeInitDone = true;
+        }
+    } catch {}
+}
+
+// 新简历分析模块降级初始化（不依赖 new-analysis.js）
+function initNewResumeFallback() {
+    try {
+        const fileInput = document.getElementById('new-resume-files');
+        const fileInfo = document.getElementById('new-resume-files-info');
+        const jdTextarea = document.getElementById('new-job-description');
+        const jdCount = document.getElementById('new-jd-count');
+        const startBtn = document.getElementById('start-local-analysis');
+        const resultPanel = document.getElementById('new-result');
+        const resultContent = document.getElementById('new-result-content');
+        const saveBtn = document.getElementById('save-new-report');
+        const dlDocxBtn = document.getElementById('download-new-docx');
+        const dlMdBtn = document.getElementById('download-new-md');
+        const uploadArea = document.querySelector('#resume-module .upload-area');
+
+        if (jdTextarea && jdCount) {
+            const updateCount = () => { try { jdCount.textContent = (jdTextarea.value || '').length; } catch {} };
+            jdTextarea.addEventListener('input', updateCount);
+            updateCount();
+        }
+
+        let selectedFiles = [];
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e){
+                selectedFiles = Array.from(e.target.files || []);
+                if (fileInfo) {
+                    if (selectedFiles.length === 0) { fileInfo.style.display = 'none'; fileInfo.textContent = ''; }
+                    else {
+                        const lines = selectedFiles.map(f => `${f.name} (${(f.size/1024/1024).toFixed(2)}MB)`);
+                        fileInfo.textContent = lines.join('\n');
+                        fileInfo.style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        if (uploadArea && fileInput) {
+            ['dragenter','dragover','dragleave','drop'].forEach(evt=>uploadArea.addEventListener(evt,(e)=>{e.preventDefault();e.stopPropagation();}));
+            ['dragenter','dragover'].forEach(evt=>uploadArea.addEventListener(evt,()=>uploadArea.classList.add('dragover')));
+            ['dragleave','drop'].forEach(evt=>uploadArea.addEventListener(evt,()=>uploadArea.classList.remove('dragover')));
+            uploadArea.addEventListener('drop',(e)=>{ const files = e.dataTransfer.files; if (fileInput) { fileInput.files = files; fileInput.dispatchEvent(new Event('change')); }});
+        }
+
+        async function runAnalysis() {
+            const jd = (jdTextarea && jdTextarea.value) ? jdTextarea.value : '';
+            if (!selectedFiles || selectedFiles.length === 0) { showToast('请先选择至少一个简历文件'); return; }
+            try {
+                showLoadingState(true);
+                const promptMatchEl = document.getElementById('prompt-match');
+                let settings = null;
+                try { settings = await (window.getUserKey ? window.getUserKey() : null); } catch { settings = null; }
+                const savedPromptMatch = (settings && settings.prompts && settings.prompts.matchInterview) ? String(settings.prompts.matchInterview || '').trim() : '';
+                const promptMatch = (promptMatchEl && String(promptMatchEl.value || '').trim()) ? String(promptMatchEl.value || '').trim() : savedPromptMatch;
+                const provider = (settings && settings.provider) ? settings.provider : 'openrouter';
+                const modelBase = (settings && settings.model) ? settings.model : 'anthropic/claude-3.5-sonnet';
+                const customModel = (settings && settings.customModel) ? settings.customModel : '';
+                const model = customModel || modelBase;
+                const key = (settings && settings.keys && settings.keys[provider]) ? settings.keys[provider] : (settings && settings.apiKey) ? settings.apiKey : '';
+                if (!promptMatch) { showToast('请在设置中填写提示词'); return; }
+                if (!key) { showToast('请在设置中填写 API 密钥'); return; }
+
+                const texts = [];
+                const errHints = [];
+                const base = (typeof window !== 'undefined' && window.API_BASE) ? window.API_BASE : '';
+                const urlParse = base ? (base + '/api/parse-doc') : '/api/parse-doc';
+                const urlChat = base ? (base + '/api/llm-chat') : '/api/llm-chat';
+                const readPdfLocal = async (file) => {
+                    try {
+                        const pdfjs = window.pdfjsLib; const Tesseract = window.Tesseract; if (!pdfjs || !Tesseract) return '';
+                        const url = URL.createObjectURL(file);
+                        const doc = await pdfjs.getDocument(url).promise;
+                        let out = '';
+                        const pages = Math.min(5, doc.numPages || 0);
+                        const start = Date.now();
+                        for (let i = 1; i <= pages; i++) {
+                            const page = await doc.getPage(i);
+                            try {
+                                const tc = await page.getTextContent();
+                                const fast = (tc && tc.items) ? tc.items.map(it => it.str).join('\n') : '';
+                                if (fast && fast.trim().length > 40) { out += fast.trim() + '\n\n'; continue; }
+                            } catch {}
+                            const viewport = page.getViewport({ scale: 1.25 });
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            canvas.width = Math.ceil(viewport.width);
+                            canvas.height = Math.ceil(viewport.height);
+                            await page.render({ canvasContext: ctx, viewport }).promise;
+                            let res = await Tesseract.recognize(canvas, 'eng', { logger: () => {} }).catch(() => null);
+                            let text = (res && res.data && res.data.text ? res.data.text : '');
+                            if (!text || text.trim().length < 20) {
+                                res = await Tesseract.recognize(canvas, 'chi_sim+eng', { logger: () => {}, langPath: 'https://tessdata.projectnaptha.com/4.0.0' }).catch(() => null);
+                                text = (res && res.data && res.data.text ? res.data.text : '');
+                            }
+                            out += (res && res.data && res.data.text ? res.data.text : '') + '\n\n';
+                            if (Date.now() - start > 25000) break;
+                        }
+                        URL.revokeObjectURL(url);
+                        return out.trim();
+                    } catch { return ''; }
+                };
+                const readImageLocal = async (file) => {
+                    try {
+                        const Tesseract = window.Tesseract; if (!Tesseract) return '';
+                        const url = URL.createObjectURL(file);
+                        let res = await Tesseract.recognize(url, 'chi_sim+eng', { logger: () => {}, langPath: 'https://tessdata.projectnaptha.com/4.0.0' }).catch(async () => {
+                            return await Tesseract.recognize(url, 'eng', { logger: () => {}, langPath: 'https://tessdata.projectnaptha.com/4.0.0' });
+                        });
+                        URL.revokeObjectURL(url);
+                        return String(res && res.data && res.data.text ? res.data.text : '').trim();
+                    } catch { return ''; }
+                };
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const f = selectedFiles[i];
+                    try {
+                        const base64 = await fileToBase64(f);
+                        const pResp = await fetch(urlParse, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: f.name, mime: f.type || '', dataBase64: base64 }) });
+                        let txt = '';
+                        let pj = null;
+                        try { pj = await pResp.json(); } catch {}
+                        if (pResp.ok) {
+                            txt = String(pj && pj.text ? pj.text : '').trim();
+                            if (!txt) {
+                                const name = (f.name || '').toLowerCase();
+                                if (name.endsWith('.pdf')) txt = await readPdfLocal(f);
+                                else if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg')) txt = await readImageLocal(f);
+                            }
+                        } else {
+                            if (pj && pj.hint) errHints.push(pj.hint);
+                            const name = (f.name || '').toLowerCase();
+                            if (name.endsWith('.pdf')) txt = await readPdfLocal(f);
+                            else if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg')) txt = await readImageLocal(f);
+                            if (!txt && pj && pj.error) throw new Error(pj.error);
+                        }
+                        texts.push({ name: f.name, text: txt });
+                    } catch (e) {
+                        texts.push({ name: f.name, text: '' });
+                    }
+                }
+
+                const validTexts = texts.filter(t => (String(t.text || '').trim().length >= 30));
+                if (validTexts.length === 0) {
+                    try {
+                        showToast('文本解析失败，切换为直接文件分析');
+                        const first = selectedFiles[0];
+                        const result = await window.API.callResumeAnalysisAPI(first, jd, promptMatch);
+                        const raw = (result && (result.data ?? result.result ?? result.output)) || result;
+                        const markdown = (() => {
+                            try {
+                                const seen = typeof WeakSet !== 'undefined' ? new WeakSet() : { add() {}, has() { return false; } };
+                                function find(obj) {
+                                    if (!obj || typeof obj !== 'object') return '';
+                                    if (seen.has(obj)) return '';
+                                    seen.add(obj);
+                                    if (typeof obj.markdown === 'string') return obj.markdown;
+                                    if (typeof obj.text === 'string') return obj.text;
+                                    if (typeof obj.content === 'string') return obj.content;
+                                    if (Array.isArray(obj.output_list)) return obj.output_list.map(find).filter(Boolean).join('\n\n');
+                                    if (Array.isArray(obj)) return obj.map(find).filter(Boolean).join('\n\n');
+                                    for (const k of Object.keys(obj)) { const v = obj[k]; const f = find(v); if (f) return f; }
+                                    return '';
+                                }
+                                const out = find(raw);
+                                return typeof out === 'string' && out.trim() ? out : (typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2));
+                            } catch { return (typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2)); }
+                        })();
+                        const merged = String(markdown || '').trim() || '分析结果为空';
+                        resumeMarkdown = merged;
+                        window.resumeMarkdown = merged;
+                        if (resultContent && resultPanel) {
+                            resultContent.innerHTML = renderMarkdown(merged);
+                            enhanceReportContainer(resultContent, 'resume');
+                            resultPanel.style.display = 'block';
+                        }
+                        showToast('分析完成');
+                    } catch (e) {
+                        const hint = errHints.filter(Boolean)[0] || '请使用 DOCX/TXT/PDF/RTF/PNG/JPG；扫描件需清晰';
+                        showToast('所有简历解析失败：' + hint);
+                    }
+                    return;
+                }
+                const resumeBlock = validTexts.map((t, i) => `【候选人${i+1}: ${t.name}】\n${t.text}`).join('\n\n');
+                const userMsg = `${promptMatch}\n\n【简历集合】\n${resumeBlock}\n\n【岗位JD】\n${jd}`;
+                const resp = await fetch(urlChat, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Provider': provider, 'X-Provider-Key': key }, body: JSON.stringify({ provider, model, messages: [{ role: 'system', content: '你是资深招聘分析专家，严格按用户提示词生成中文报告，仅优化格式，不缩短内容。' }, { role: 'user', content: userMsg }], temperature: 0.05, max_tokens: 8000 }) });
+                const rawText = await resp.text();
+                let json = null; try { json = JSON.parse(rawText); } catch {}
+                if (!resp.ok) {
+                    const msg = (json && json.error && (json.error.message || json.error)) || (json && json.message) || rawText || 'LLM 调用失败';
+                    throw new Error(String(msg));
+                }
+                const out = String((json && json.text) ? json.text : '');
+                const merged = out || '分析结果为空';
+
+                resumeMarkdown = merged;
+                window.resumeMarkdown = merged;
+                if (resultContent && resultPanel) {
+                    resultContent.innerHTML = renderMarkdown(merged);
+                    enhanceReportContainer(resultContent, 'resume');
+                    resultPanel.style.display = 'block';
+                }
+                showToast('分析完成');
+            } catch (e) {
+                console.error('分析失败', e);
+                showToast('分析失败：' + (e && e.message ? e.message : e));
+            } finally { showLoadingState(false); }
+        }
+
+        if (startBtn) { startBtn.addEventListener('click', runAnalysis); }
+
+        async function saveNewReport() {
+            try {
+                const md = String(window.resumeMarkdown || '').trim();
+                if (!md) { showToast('没有可保存的分析结果'); return; }
+                await saveReportToSupabase('resume');
+            } catch (e) {
+                console.error('保存失败', e);
+                showToast('保存失败：' + (e && e.message ? e.message : e));
+            }
+        }
+        if (saveBtn) { saveBtn.addEventListener('click', saveNewReport); }
+
+        if (dlDocxBtn) { dlDocxBtn.addEventListener('click', function(){ try { downloadResultDocx('resume'); } catch (e) { showToast('下载失败'); } }); }
+        if (dlMdBtn) { dlMdBtn.addEventListener('click', function(){ try { downloadResult('resume'); } catch (e) { showToast('下载失败'); } }); }
+    } catch (e) {
+        console.error('初始化新简历分析降级模块失败', e);
+    }
 }
 
 function showInterviewAnalysis() {
-    document.querySelector('.feature-cards').style.display = 'none';
+    var fc = document.getElementById('features'); if (fc) fc.style.display = 'none';
     document.querySelectorAll('.analysis-module').forEach(module => {
         module.style.display = 'none';
     });
@@ -225,15 +461,20 @@ function showInterviewAnalysis() {
 }
 
 function showMyReports() {
-    document.querySelector('.feature-cards').style.display = 'none';
-    document.querySelectorAll('.analysis-module').forEach(module => {
-        module.style.display = 'none';
-    });
-    document.getElementById('my-reports-module').style.display = 'block';
-    setupReportFilters();
-    // 自动加载报告
-    loadMyReports();
+  var fc = document.getElementById('features'); if (fc) fc.style.display = 'none';
+  document.querySelectorAll('.analysis-module').forEach(module => {
+    module.style.display = 'none';
+  });
+  document.getElementById('my-reports-module').style.display = 'block';
+  setupReportFilters();
+  // 自动加载报告
+  loadMyReports();
 }
+
+try { window.showResumeAnalysis = showResumeAnalysis; } catch {}
+try { window.showInterviewAnalysis = showInterviewAnalysis; } catch {}
+try { window.showMyReports = showMyReports; } catch {}
+try { window.showHome = showHome; } catch {}
 
 // 重置函数
 function resetResumeAnalysis() {
@@ -258,6 +499,9 @@ function resetInterviewAnalysis() {
     interviewFile = null;
     document.getElementById('interview-file').value = '';
     document.getElementById('interview-file-info').style.display = 'none';
+    const statusBar = document.getElementById('interview-status-bar');
+    if (statusBar) statusBar.style.display = 'none';
+    
     
     // 重置姓名
     document.getElementById('interviewee-name').value = '';
@@ -279,11 +523,18 @@ function handleResumeFile(file) {
         'application/pdf',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain'
+        'text/plain',
+        'text/rtf',
+        'application/rtf',
+        'image/png',
+        'image/jpeg'
     ];
-    
-    if (!allowedTypes.includes(file.type)) {
-        showToast('请上传 PDF、DOC、DOCX 或 TXT 格式的文件', 'error');
+    const allowedExts = ['pdf','doc','docx','txt','rtf','png','jpg','jpeg'];
+    const mimeOk = allowedTypes.includes(file.type);
+    const ext = (file && typeof file.name === 'string') ? (file.name.split('.').pop() || '').toLowerCase() : '';
+    const extOk = allowedExts.includes(ext);
+    if (!mimeOk && !extOk) {
+        showToast('请上传 PDF、DOC、DOCX、TXT、RTF、PNG 或 JPG 文件', 'error');
         return;
     }
     
@@ -299,14 +550,22 @@ function handleResumeFile(file) {
 }
 
 function handleInterviewFile(file) {
-    // 验证文件类型（支持 PDF/DOC/DOCX）
     const allowedTypes = [
         'application/pdf',
         'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'text/rtf',
+        'application/rtf',
+        'image/png',
+        'image/jpeg'
     ];
-    if (!allowedTypes.includes(file.type)) {
-        showToast('请上传 PDF、DOC 或 DOCX 格式的文件', 'error');
+    const allowedExts = ['pdf','doc','docx','txt','rtf','png','jpg','jpeg'];
+    const mimeOk = allowedTypes.includes(file.type);
+    const ext = (file && typeof file.name === 'string') ? (file.name.split('.').pop() || '').toLowerCase() : '';
+    const extOk = allowedExts.includes(ext);
+    if (!mimeOk && !extOk) {
+        showToast('请上传 PDF、DOC、DOCX、TXT、RTF、PNG 或 JPG 文件', 'error');
         return;
     }
     
@@ -317,25 +576,38 @@ function handleInterviewFile(file) {
     }
     
     interviewFile = file;
-    showFileInfo('interview-file-info', file);
+    const targetId = document.getElementById('interview-status-bar') ? 'interview-status-bar' : 'interview-file-info';
+    showFileInfo(targetId, file);
     validateInterviewForm();
 }
 
 function showFileInfo(infoId, file) {
     const infoDiv = document.getElementById(infoId);
-    if (infoDiv) {
+    if (!infoDiv) return;
+    const ext = (file && typeof file.name === 'string') ? (file.name.split('.').pop() || '').toUpperCase() : '';
+    if (infoId === 'interview-file-info' || infoId === 'interview-status-bar') {
         infoDiv.innerHTML = `
-            <div class="file-item">
-                <i class="fas fa-file"></i>
-                <span class="file-name">${file.name}</span>
-                <span class="file-size">${formatFileSize(file.size)}</span>
-                <button class="remove-file" onclick="removeFile('${infoId}')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
+            <span class="file-name" style="flex:1 1 auto;">${file.name}</span>
+            <button class="remove-file" type="button" onclick="removeFile('${infoId}')" aria-label="移除" title="移除" style="background:transparent;border:none;cursor:pointer;color:#6b7280;margin-left:8px;padding:0;line-height:1;display:inline-flex;align-items:center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M19 7h-1v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7H5a1 1 0 0 1 0-2h4V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h4a1 1 0 1 1 0 2ZM10 7h4V4h-4v3Zm-1 4a1 1 0 0 1 2 0v6a1 1 0 1 1-2 0v-6Zm6 0a1 1 0 1 1 2 0v6a1 1 0 1 1-2 0v-6Z"/>
+              </svg>
+            </button>
         `;
-        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.innerHTML = `
+            <span class="file-name">${file.name}</span>
+            <span class="file-size">${formatFileSize(file.size)}</span>
+            <button class="remove-file" onclick="removeFile('${infoId}')"><i class="fas fa-times"></i></button>
+        `;
     }
+    infoDiv.style.display = (infoId === 'interview-status-bar') ? 'flex' : 'block';
+    try {
+        const container = infoDiv.closest('.file-upload');
+        const group = infoDiv.closest('.upload-group');
+        if (container) container.style.display = 'flex';
+        if (group) group.style.display = '';
+    } catch {}
 }
 
 function removeFile(infoId) {
@@ -343,13 +615,22 @@ function removeFile(infoId) {
         resumeFile = null;
         document.getElementById('resume-file').value = '';
         validateResumeForm();
-    } else if (infoId === 'interview-file-info') {
+    } else if (infoId === 'interview-file-info' || infoId === 'interview-status-bar') {
         interviewFile = null;
         document.getElementById('interview-file').value = '';
         validateInterviewForm();
     }
+    const infoDiv = document.getElementById(infoId);
+    if (infoDiv) infoDiv.style.display = 'none';
+    if (infoId === 'interview-file-info' || infoId === 'interview-status-bar') {
+        try {
+            const container = document.getElementById('interview-upload');
+            const group = document.getElementById('audioUploadContainer');
+            if (container) container.style.display = 'none';
+            if (group) group.style.display = 'none';
+        } catch {}
+    }
     
-    document.getElementById(infoId).style.display = 'none';
 }
 
 function formatFileSize(bytes) {
@@ -369,6 +650,7 @@ function openLoginModal() {
         errorDiv.style.display = 'none';
         errorDiv.textContent = '';
     }
+    if (typeof switchLoginMode === 'function') switchLoginMode('login');
 }
 
 function closeLoginModal() {
@@ -421,6 +703,7 @@ function bindReportModalToolbarOnce() {
     const docxBtn = document.getElementById('report-download-docx');
     const pdfBtn = document.getElementById('report-download-pdf');
     const copyBtn = document.getElementById('report-copy-link');
+    const printBtn = document.getElementById('report-print');
 
     if (ddBtn && ddMenu && ddRoot && !ddBtn.__bound) {
         ddBtn.__bound = true;
@@ -490,6 +773,17 @@ function bindReportModalToolbarOnce() {
                     showToast('链接已复制', 'success');
                 } catch { showToast('复制失败，请手动复制地址栏链接', 'error'); }
             }
+        });
+    }
+    if (printBtn && !printBtn.__bound) {
+        printBtn.__bound = true;
+        printBtn.addEventListener('click', () => {
+            try {
+                const frame = document.getElementById('report-frame');
+                const win = frame && frame.contentWindow ? frame.contentWindow : window;
+                win.focus();
+                win.print();
+            } catch { window.print(); }
         });
     }
 }
@@ -692,6 +986,26 @@ function showLoginError(message) {
         errorDiv.style.display = 'block';
     }
 }
+
+function switchLoginMode(mode) {
+    const pwdGroup = document.getElementById('login-password-group');
+    const loginActions = document.getElementById('login-actions');
+    const forgotActions = document.getElementById('forgot-actions');
+    const subtitle = document.querySelector('#login-modal .modal-subtitle');
+    if (mode === 'forgot') {
+        if (pwdGroup) pwdGroup.style.display = 'none';
+        if (loginActions) loginActions.style.display = 'none';
+        if (forgotActions) forgotActions.style.display = 'flex';
+        if (subtitle) subtitle.textContent = '输入邮箱以接收重置邮件';
+    } else {
+        if (pwdGroup) pwdGroup.style.display = '';
+        if (loginActions) loginActions.style.display = 'flex';
+        if (forgotActions) forgotActions.style.display = 'none';
+        if (subtitle) subtitle.textContent = '使用邮箱登录或注册';
+    }
+}
+
+function openForgotMode() { switchLoginMode('forgot'); }
 
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -934,11 +1248,15 @@ async function saveReportToSupabase(type) {
 // 加载我的报告
 async function loadMyReports() {
     if (!isLoggedIn) {
-        const reportsList = document.getElementById('reports-list');
-        if (reportsList) {
-            reportsList.innerHTML = '<p class="notice">请先登录后查看报告。</p>';
+        const u = await waitForUser(1500);
+        if (!u) {
+            const reportsList = document.getElementById('reports-list');
+            if (reportsList) {
+                reportsList.innerHTML = '<p class="notice">请先登录后查看报告。</p>';
+            }
+            return;
         }
-        return;
+        isLoggedIn = true;
     }
     
     try {
@@ -952,12 +1270,22 @@ async function loadMyReports() {
             let reports = null;
             let error = null;
             {
-                const resp = await window.Auth.supabase
-                    .from('reports')
-                    .select('id,title,type,report_type,created_at,candidate_name,job_title,match_score,is_starred')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false });
-                reports = resp.data; error = resp.error;
+                try {
+                    await trySyncLocalReports(user);
+                } catch {}
+                let token = '';
+                try { const { data } = await window.Auth.getClient().auth.getSession(); token = data?.session?.access_token || ''; } catch {}
+                if (token) {
+                    const resp = await window.Auth.supabase
+                        .from('reports')
+                        .select('id,title,type,report_type,created_at,candidate_name,job_title,match_score,is_starred,content,markdown_output')
+                        .eq('user_id', user.id)
+                        .order('created_at', { ascending: false });
+                    reports = resp.data; error = resp.error;
+                } else {
+                    reports = [];
+                    error = null;
+                }
             }
             if (error && (String(error.code) === '42703' || /column .* does not exist/i.test(error.message || ''))) {
                 const resp2 = await window.Auth.supabase
@@ -983,23 +1311,115 @@ async function loadMyReports() {
                         if (starMap && starMap[rid]) return { ...r, is_starred: true };
                         return r;
                     });
-                    const processed = applyFiltersAndSort(merged, starMap, false);
-                    reportsList.innerHTML = processed.map(report => {
-                        const md = report.content ?? report.markdown_output ?? '';
+                    let mergedAll = merged;
+                    try {
+                        const localKey = `demo_reports_${user.id}`;
+                        const localItems = JSON.parse(localStorage.getItem(localKey) || '[]') || [];
+                        if (Array.isArray(localItems) && localItems.length) {
+                            const ids = new Set(merged.map(r => String(r.id)));
+                            for (const it of localItems) { if (!ids.has(String(it.id))) mergedAll.push(it); }
+                        }
+                    } catch {}
+                    const processed = applyFiltersAndSort(mergedAll, starMap, false);
+                    let overrides = {};
+                    try {
+                        overrides = JSON.parse(localStorage.getItem(`report_meta_overrides_${user.id}`) || '{}') || {};
+                        reportMetaOverrides = overrides;
+                    } catch { overrides = {}; }
+                    try { window.reportsCache = window.reportsCache || {}; } catch {}
+                    const getMdFromReport = (r) => {
+                        try {
+                            const raw = String(r.markdown_output || '');
+                            if (raw.trim().startsWith('{')) {
+                                let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
+                                if (obj) {
+                                    if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
+                                    if (typeof obj.md === 'string') return String(obj.md || '');
+                                    if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
+                                }
+                            }
+                            const md = raw || String(r.content || '');
+                            return md;
+                        } catch { return String(r.content || ''); }
+                    };
+                    const normName = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
+                    const interviewByName = {};
+                    for (const r of mergedAll) {
+                        const rt = (r.type ?? r.report_type) || '';
+                        if (rt === 'interview') {
+                            const mdInt = getMdFromReport(r);
+                            const parsedInt = extractSummaryFieldsFromMarkdown(mdInt);
+                            const nmRaw = String(parsedInt.candidate_name || r.candidate_name || r.title || '').trim();
+                            const nm = normName(nmRaw);
+                            if (nm) interviewByName[nm] = r.id;
+                        }
+                    }
+                    const display = processed.filter(r => ((r.type ?? r.report_type) === 'resume'));
+                    const pendingLinkReports = [];
+                    const html = display.map(report => {
+                        const md = getMdFromReport(report);
+                        try { window.reportsCache[String(report.id)] = { md }; } catch {}
                         const parsed = extractSummaryFieldsFromMarkdown(md);
-                        const candidate = report.candidate_name ?? parsed.candidate_name ?? '';
-                        const job = report.job_title ?? parsed.job_title ?? '未知岗位';
-                        const scoreVal = (report.match_score ?? parsed.match_score);
-                        const scoreText = (scoreVal || scoreVal === 0) ? `${Math.round(Number(scoreVal))}%` : '未知';
+                        const clean = (s) => String(s || '').replace(/<br\s*\/>/gi, ' ').replace(/<br>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                        const candidate = clean(parsed.candidate_name || '未命名候选人');
+                        const job = clean(parsed.job_title || '未知岗位');
+                        let mo = {};
+                        try { mo = JSON.parse(String(report.markdown_output || '{}')); } catch { mo = {}; }
+                        const rawScore = (parsed.match_score != null ? parsed.match_score : (mo.match_score != null ? mo.match_score : (report.match_score ?? null)));
+                        const numScore = (() => {
+                            if (rawScore === null || rawScore === undefined || rawScore === '') return null;
+                            const n = parseInt(String(rawScore).trim(), 10);
+                            if (Number.isFinite(n)) return Math.max(0, Math.min(100, n));
+                            return null;
+                        })();
+                        const scoreText = (numScore !== null) ? `${Math.round(numScore)}%` : '未知';
                         const reportTypeText = (report.type ?? report.report_type) === 'resume' ? '简历分析' : '面试分析';
-                        const safeTitle = candidate || report.title || '未命名候选人';
+                        const safeTitle = candidate || '未命名候选人';
                         const isStarred = (report.is_starred === true) || Boolean(starMap[report.id]);
+                        
+                        let status = mo.interview_status || '';
+                        let timeStr = mo.interview_time || '';
+                        const ov = overrides[String(report.id)] || {};
+                        if (ov.interview_status) status = ov.interview_status;
+                        if (ov.interview_time) timeStr = ov.interview_time;
+                        const getStatusColor = (s) => {
+                            if (s === '已面试-通过') return '#10b981';
+                            if (s === '已面试-未通过') return '#ef4444';
+                            if (s === '已面试-待定') return '#f59e0b';
+                            if (s === '未通过') return '#ef4444';
+                            if (s === '待面试') return '#f59e0b';
+                            if (s === '已面试') return '#10b981';
+                            return '#6b7280';
+                        };
+                        const statusColor = getStatusColor(status);
+                        const statusTag = status ? `<span class="status-badge js-status-badge" style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:12px;background:${statusColor};color:white;font-size:12px;">${escapeHtml(status)}</span>` : '';
+                        const timeTag = timeStr ? `<span class="time-badge js-time-badge" style="margin-left:8px;color:#6b7280;font-size:12px;">⏰ ${escapeHtml(timeStr)}</span>` : '';
+                        let linkedInterviewId = (() => {
+                            const key = normName(candidate);
+                            return key ? interviewByName[key] : null;
+                        })();
+                        if (!linkedInterviewId) {
+                            let mo = {};
+                            try { mo = JSON.parse(String(report.markdown_output || '{}')); } catch { mo = {}; }
+                            const lid = mo && mo.interview_link_id ? String(mo.interview_link_id) : '';
+                            if (lid) linkedInterviewId = lid;
+                        }
+                        if (!linkedInterviewId) {
+                            try {
+                                const lid2 = localStorage.getItem('interview_link_' + String(report.id));
+                                if (lid2) linkedInterviewId = String(lid2);
+                            } catch {}
+                        }
                         return `
-                        <div class="report-item ${isStarred ? 'report-card-starred' : ''}">
+                        <div class="report-item ${isStarred ? 'report-card-starred' : ''}" data-report-id="${escapeHtml(String(report.id))}">
                             <div class="report-header">
-                                <h4>${escapeHtml(safeTitle)}</h4>
+                                <div class="report-header-left">
+                                    <h4>${escapeHtml(safeTitle)}</h4>
+                                    <span class="report-summary">岗位：${escapeHtml(job)}｜匹配度：${escapeHtml(scoreText)}</span>
+                                </div>
                                 <div class="report-header-actions">
                                     <span class="report-type">${reportTypeText}</span>
+                                    ${statusTag}${timeTag}
                                     <button class="btn-secondary icon-only ${isStarred ? 'starred' : ''}" title="${isStarred ? '取消星标' : '设为星标'}" onclick="toggleStarReport('${report.id}', false, this)">
                                         <svg class="star-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M12 17.27L18.18 21 16.54 13.96 22 9.24 14.82 8.63 12 2 9.18 8.63 2 9.24 7.46 13.96 5.82 21z" />
@@ -1018,7 +1438,6 @@ async function loadMyReports() {
                             </div>
                             <div class="report-meta">
                                 <span class="report-date">${new Date(report.created_at).toLocaleString()}</span>
-                                <span class="report-summary">岗位：${escapeHtml(job)}｜匹配度：${escapeHtml(scoreText)}</span>
                             </div>
                             <div class="report-actions">
                                 <div class="dropdown">
@@ -1052,6 +1471,24 @@ async function loadMyReports() {
                                         </button>
                                     </div>
                                 </div>
+                                <div class="dropdown">
+                                    <button class="btn-secondary icon-only" title="状态" onclick="(function(btn){btn.parentElement.classList.toggle('open');})(this)">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="9" />
+                                            <path d="M12 7v5l3 3" />
+                                        </svg>
+                                    </button>
+                                    <div class="dropdown-menu">
+                                        <button class="dropdown-item" onclick="setInterviewStatus('${report.id}','已面试-通过'); this.closest('.dropdown').classList.remove('open')">已面试-通过</button>
+                                        <button class="dropdown-item" onclick="setInterviewStatus('${report.id}','已面试-未通过'); this.closest('.dropdown').classList.remove('open')">已面试-未通过</button>
+                                        <button class="dropdown-item" onclick="setInterviewStatus('${report.id}','已面试-待定'); this.closest('.dropdown').classList.remove('open')">已面试-待定</button>
+                                        <button class="dropdown-item" onclick="setInterviewStatus('${report.id}','待面试'); this.closest('.dropdown').classList.remove('open')">待面试</button>
+                                        <button class="dropdown-item" onclick="setInterviewStatus('${report.id}','未通过'); this.closest('.dropdown').classList.remove('open')">未通过</button>
+                                        <button class="dropdown-item" onclick="openInterviewTimePanel('${report.id}', this)">设置面试时间</button>
+                                        <button class="dropdown-item" onclick="clearInterviewStatus('${report.id}'); this.closest('.dropdown').classList.remove('open')">清除状态</button>
+                                        <button class="dropdown-item" onclick="clearInterviewTime('${report.id}'); this.closest('.dropdown').classList.remove('open')">清除面试时间</button>
+                                    </div>
+                                </div>
                                 <button class="btn-secondary icon-only btn-outline-blue" title="查看报告" onclick="viewSavedReport('${report.id}')">
                                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
@@ -1066,11 +1503,148 @@ async function loadMyReports() {
                                         <path d="M7 12h4" />
                                     </svg>
                                 </button>
+                                ${linkedInterviewId ? renderInterviewRecordButtonHtml(linkedInterviewId) : renderInterviewRecordButtonHtmlAuto(String(report.id), safeTitle)}
                             </div>
                         </div>`;
+                        if (!linkedInterviewId) pendingLinkReports.push({ id: report.id, candidate: safeTitle });
                     }).join('');
+                    reportsList.innerHTML = html;
+                    try {
+                        if (pendingLinkReports.length) {
+                            (async () => {
+                                try {
+                                    await lazyResolveInterviewLinksCloud(pendingLinkReports);
+                                } catch {}
+                            })();
+                        }
+                    } catch {}
+                    try { myReportsCache = { uid: user.id, html, ts: Date.now() }; } catch {}
                 } else {
-                    reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>';
+                    try {
+                        const localKey = `demo_reports_${user.id}`;
+                        const localItems = JSON.parse(localStorage.getItem(localKey) || '[]') || [];
+                        if (Array.isArray(localItems) && localItems.length) {
+                            const processed = applyFiltersAndSort(localItems, {}, false);
+                            const getMdFromLocal = (r) => {
+                                try {
+                                    const raw = String(r.markdown_output || '');
+                                    if (raw.trim().startsWith('{')) {
+                                        let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
+                                        if (obj) {
+                                            if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
+                                            if (typeof obj.md === 'string') return String(obj.md || '');
+                                            if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
+                                        }
+                                    }
+                                    const md = raw || String(r.content || '');
+                                    return md;
+                                } catch { return String(r.content || ''); }
+                            };
+                            const interviewByNameLocal = {};
+                            const normNameLocal = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
+                            for (const r of localItems) {
+                                const rt = (r.type ?? r.report_type) || '';
+                                if (rt === 'interview') {
+                                    const mdInt = getMdFromLocal(r);
+                                    const parsedInt = extractSummaryFieldsFromMarkdown(mdInt);
+                                    const nmRaw = String(parsedInt.candidate_name || r.candidate_name || r.title || '').trim();
+                                    const nm = normNameLocal(nmRaw);
+                                    if (nm) interviewByNameLocal[nm] = r.id;
+                                }
+                            }
+                            const displayLocal = processed.filter(r => ((r.type ?? r.report_type) === 'resume'));
+                            const pendingLocal = [];
+                            const html = displayLocal.map(report => {
+                                const md = getMdFromLocal(report);
+                                const parsed = extractSummaryFieldsFromMarkdown(md);
+                                const clean = (s) => String(s || '').replace(/<br\s*\/>/gi, ' ').replace(/<br>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                                const candidate = clean(parsed.candidate_name || '未命名候选人');
+                                const job = clean(parsed.job_title || '未知岗位');
+                                const rawScore = (parsed.match_score != null ? parsed.match_score : (report.match_score ?? null));
+                                const numScore = (() => {
+                                    if (rawScore === null || rawScore === undefined || rawScore === '') return null;
+                                    const n = parseInt(String(rawScore).trim(), 10);
+                                    if (Number.isFinite(n)) return Math.max(0, Math.min(100, n));
+                                    return null;
+                                })();
+                                const scoreText = (numScore !== null) ? `${Math.round(numScore)}%` : '未知';
+                                const reportTypeText = '简历分析';
+                                const safeTitle = candidate || '未命名候选人';
+                                const normName = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
+                                let linkedInterviewId = (() => {
+                                    const key = normName(candidate);
+                                    return key ? interviewByNameLocal[key] : null;
+                                })();
+                                if (!linkedInterviewId) {
+                                    let mo = {};
+                                    try { mo = JSON.parse(String(report.markdown_output || '{}')); } catch { mo = {}; }
+                                    const lid = mo && mo.interview_link_id ? String(mo.interview_link_id) : '';
+                                    if (lid) linkedInterviewId = lid;
+                                }
+                                if (!linkedInterviewId) {
+                                    try {
+                                        const lid2 = localStorage.getItem('interview_link_' + String(report.id));
+                                        if (lid2) linkedInterviewId = String(lid2);
+                                    } catch {}
+                                }
+                                return `
+                                <div class="report-item" data-report-id="${escapeHtml(String(report.id))}">
+                                    <div class="report-header">
+                                        <div class="report-header-left">
+                                            <h4>${escapeHtml(safeTitle)}</h4>
+                                            <span class="report-summary">岗位：${escapeHtml(job)}｜匹配度：${escapeHtml(scoreText)}</span>
+                                        </div>
+                                        <div class="report-header-actions">
+                                            <span class="report-type">${reportTypeText}</span>
+                                        </div>
+                                    </div>
+                                    <div class="report-meta">
+                                        <span class="report-date">${new Date(report.created_at).toLocaleString()}</span>
+                                    </div>
+                                    <div class="report-actions">
+                                        <button class="btn-secondary icon-only btn-outline-blue" title="查看报告" onclick="viewSavedReport('${report.id}', true)">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        </button>
+                                        <button class="btn-secondary icon-only btn-outline-green" title="进入面试" onclick="enterInterview('${report.id}')">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M3 21V5a2 2 0 0 1 2-2h10" />
+                                                <path d="M14 3h7v18H5a2 2 0 0 1-2-2" />
+                                                <path d="M15 12h4" />
+                                                <path d="M7 12h4" />
+                                            </svg>
+                                        </button>
+                                        ${linkedInterviewId ? renderInterviewRecordButtonHtml(linkedInterviewId) : renderInterviewRecordButtonHtmlAuto(String(report.id), safeTitle)}
+                                        <button class="btn-secondary icon-only btn-danger" title="删除报告" onclick="deleteReport('${report.id}', true)">
+                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M3 6h18" />
+                                                <path d="M8 6v-2h8v2" />
+                                                <path d="M19 6l-1 14H6L5 6" />
+                                                <path d="M10 11v6" />
+                                                <path d="M14 11v6" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>`;
+                                if (!linkedInterviewId) pendingLocal.push({ id: report.id, candidate: safeTitle });
+                            }).join('');
+                            reportsList.innerHTML = html;
+                            try {
+                                if (pendingLocal.length) {
+                                    (async () => {
+                                        try { await lazyResolveInterviewLinksLocal(pendingLocal, localItems); } catch {}
+                                    })();
+                                }
+                            } catch {}
+                            try { myReportsCache = { uid: user.id, html, ts: Date.now() }; } catch {}
+                        } else {
+                            reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>';
+                        }
+                    } catch {
+                        reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>';
+                    }
                 }
             }
         } else {
@@ -1108,9 +1682,512 @@ function viewSavedReport(reportId, isLocalDemo = false) {
     openReportModal(reportId, isLocalDemo);
 }
 
-// 新增：进入面试（暂不实现跳转）
+// 新增：进入面试
 function enterInterview(reportId) {
-    showToast('进入面试功能即将上线', 'info');
+  try {
+        (async () => {
+            try {
+                const client = window.Auth && window.Auth.supabase;
+                if (client) {
+                    const { data } = await client.from('reports').select('*').eq('id', String(reportId)).limit(1).maybeSingle();
+                    if (data) {
+                        const md = String(data.content || '');
+                        let cn = data.candidate_name || '';
+                        let jt = data.job_title || '';
+                        let ms = data.match_score ?? null;
+                        if ((!cn || !jt) && md) {
+                            try {
+                                const parsed = extractSummaryFieldsFromMarkdown(md);
+                                cn = cn || parsed.candidate_name || '';
+                                jt = jt || parsed.job_title || '';
+                                if (ms == null && parsed.match_score != null) ms = parsed.match_score;
+                            } catch {}
+                        }
+                        try { localStorage.setItem(`interview_source_${reportId}`, JSON.stringify({ md, candidate_name: cn, job_title: jt, match_score: ms })); } catch {}
+                    }
+                }
+            } catch {}
+            const useAlias = (window.location.port === '4000');
+            const path = useAlias ? '/interview' : '/进入面试-AI招聘分析.html';
+            const url = new URL(path, window.location.origin);
+            url.searchParams.set('report_id', String(reportId));
+            window.location.href = url.toString();
+        })();
+  } catch {
+        showToast('跳转进入面试页面失败', 'error');
+  }
+}
+
+async function setInterviewStatus(reportId, status) {
+    try {
+        const client = window.Auth && window.Auth.supabase;
+        if (!client) { showToast('未登录', 'error'); return; }
+        const { data } = await client.from('reports').select('content,markdown_output').eq('id', reportId).limit(1).maybeSingle();
+        let mo = {};
+        const raw = String(data?.markdown_output || '');
+        if (raw.trim().startsWith('{')) { try { mo = JSON.parse(raw); } catch { mo = {}; } } else { mo = { md: raw || String(data?.content || '') }; }
+        mo.interview_status = status;
+        const { error } = await client.from('reports').update({ markdown_output: JSON.stringify(mo) }).eq('id', reportId);
+        if (error) throw new Error(error.message || '更新失败');
+        showToast('状态已更新', 'success');
+        try {
+            let uid = 'guest';
+            try { const { data: sess } = await (window.Auth && window.Auth.getClient ? window.Auth.getClient().auth.getSession() : Promise.resolve({ data: null })); uid = sess?.session?.user?.id || uid; } catch {}
+            if (uid === 'guest') {
+                try { const u = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null); if (u && u.id) uid = u.id; } catch {}
+            }
+            reportMetaOverrides[reportId] = { ...(reportMetaOverrides[reportId] || {}), interview_status: status };
+            localStorage.setItem(`report_meta_overrides_${uid}`, JSON.stringify(reportMetaOverrides));
+        } catch {}
+        updateCardStatusLabel(reportId, status);
+        await loadMyReports();
+    } catch (e) { showToast(e?.message || '更新失败', 'error'); }
+}
+
+async function setInterviewTime(reportId, valueOverride) {
+    try {
+        const val = valueOverride || prompt('输入面试时间，如 2025-11-20 15:30');
+        if (!val) return;
+        const client = window.Auth && window.Auth.supabase;
+        if (!client) { showToast('未登录', 'error'); return; }
+        const { data } = await client.from('reports').select('content,markdown_output').eq('id', reportId).limit(1).maybeSingle();
+        let mo = {};
+        const raw = String(data?.markdown_output || '');
+        if (raw.trim().startsWith('{')) { try { mo = JSON.parse(raw); } catch { mo = {}; } } else { mo = { md: raw || String(data?.content || '') }; }
+        mo.interview_time = val;
+        const { error } = await client.from('reports').update({ markdown_output: JSON.stringify(mo) }).eq('id', reportId);
+        if (error) throw new Error(error.message || '更新时间失败');
+        showToast('面试时间已设置', 'success');
+        try {
+            let uid = 'guest';
+            try { const { data: sess } = await (window.Auth && window.Auth.getClient ? window.Auth.getClient().auth.getSession() : Promise.resolve({ data: null })); uid = sess?.session?.user?.id || uid; } catch {}
+            if (uid === 'guest') {
+                try { const u = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null); if (u && u.id) uid = u.id; } catch {}
+            }
+            reportMetaOverrides[reportId] = { ...(reportMetaOverrides[reportId] || {}), interview_time: val };
+            localStorage.setItem(`report_meta_overrides_${uid}`, JSON.stringify(reportMetaOverrides));
+        } catch {}
+        updateCardStatusLabel(reportId, undefined, val);
+        await loadMyReports();
+    } catch (e) { showToast(e?.message || '更新时间失败', 'error'); }
+}
+
+function openInterviewTimePanel(reportId, btn) {
+    try {
+        const rect = btn.getBoundingClientRect();
+        const panel = document.createElement('div');
+        panel.style.position = 'fixed';
+        panel.style.left = `${rect.left}px`;
+        panel.style.top = `${rect.bottom + 4}px`;
+        panel.style.background = '#fff';
+        panel.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+        panel.style.borderRadius = '8px';
+        panel.style.padding = '10px';
+        panel.style.zIndex = '9999';
+        panel.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="datetime-local" id="interviewTimeInput" style="padding:6px;border:1px solid #e0e0e0;border-radius:6px;" />
+            <button class="btn-secondary icon-only" id="interviewTimeSave" title="保存" style="padding:4px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16v16H4z" />
+                <path d="M7 7h10v5H7z" />
+                <path d="M9 16h6" />
+              </svg>
+            </button>
+            <button class="btn-secondary icon-only" id="interviewTimeCancel" title="取消" style="padding:4px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18" />
+                <path d="M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        `;
+        document.body.appendChild(panel);
+        const cleanup = () => { try { document.body.removeChild(panel); } catch {} document.removeEventListener('click', outside); };
+        const outside = (e) => { if (!panel.contains(e.target) && e.target !== btn) cleanup(); };
+        document.addEventListener('click', outside);
+        panel.querySelector('#interviewTimeSave').addEventListener('click', async () => {
+            const input = panel.querySelector('#interviewTimeInput');
+            const val = input.value ? input.value.replace('T', ' ') : '';
+            if (!val) { showToast('请选择时间', 'error'); return; }
+            await setInterviewTime(reportId, val);
+            try { const dd = btn.closest('.dropdown'); if (dd) dd.classList.remove('open'); } catch {}
+            cleanup();
+        });
+        panel.querySelector('#interviewTimeCancel').addEventListener('click', () => { try { const dd = btn.closest('.dropdown'); if (dd) dd.classList.remove('open'); } catch {} cleanup(); });
+    } catch {}
+}
+
+function renderStatusBadge(status) {
+    if (!status) return '';
+    const getStatusColor = (s) => {
+        if (s === '已面试-通过') return '#10b981';
+        if (s === '已面试-未通过') return '#ef4444';
+        if (s === '已面试-待定') return '#f59e0b';
+        if (s === '未通过') return '#ef4444';
+        if (s === '待面试') return '#f59e0b';
+        if (s === '已面试') return '#10b981';
+        return '#6b7280';
+    };
+    const color = getStatusColor(status);
+    return `<span class="status-badge js-status-badge" style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:12px;background:${color};color:white;font-size:12px;">${escapeHtml(status)}</span>`;
+}
+
+function renderTimeBadge(timeStr) {
+    if (!timeStr) return '';
+    return `<span class="time-badge js-time-badge" style="margin-left:8px;color:#374151;background:#eef2ff;border:1px solid #e5e7eb;padding:2px 8px;border-radius:12px;font-size:12px;">⏰ ${escapeHtml(timeStr)}</span>`;
+}
+
+function renderInterviewRecordButtonHtml(id) {
+    if (!id) return '';
+    const escId = String(id).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    return '<button class="btn-secondary icon-only btn-outline-purple" title="面试记录" onclick="viewInterviewRecord(\'' + escId + '\')">\n'
+         + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">\n'
+         + '<path d="M4 4h16v16H4z" />\n'
+         + '<path d="M8 8h8v2H8z" />\n'
+         + '<path d="M8 12h8v2H8z" />\n'
+         + '<path d="M8 16h6v2H8z" />\n'
+         + '</svg>\n'
+         + '</button>';
+}
+
+function renderInterviewRecordButtonHtmlAuto(resumeId, candidate) {
+    const escResumeId = String(resumeId).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    const escCand = String(candidate || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    return '<button class="btn-secondary icon-only btn-outline-purple" title="面试记录" onclick="openInterviewRecordAuto(\'' + escResumeId + '\', \'' + escCand + '\')">\n'
+         + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">\n'
+         + '<path d="M4 4h16v16H4z" />\n'
+         + '<path d="M8 8h8v2H8z" />\n'
+         + '<path d="M8 12h8v2H8z" />\n'
+         + '<path d="M8 16h6v2H8z" />\n'
+         + '</svg>\n'
+         + '</button>';
+}
+
+function updateCardStatusLabel(reportId, status, timeStr) {
+    try {
+        const esc = (s) => { try { return CSS.escape(s); } catch { return String(s).replace(/"/g, '\"'); } };
+        const card = document.querySelector(`.report-item[data-report-id="${esc(String(reportId))}"]`);
+        if (!card) { console.warn('updateCardStatusLabel card missing', { reportId }); return; }
+        const actions = card.querySelector('.report-header-actions');
+        if (!actions) { console.warn('updateCardStatusLabel header actions missing', { reportId }); return; }
+        if (typeof status === 'string') {
+            const cur = actions.querySelector('.js-status-badge');
+            if (!status) { if (cur) cur.remove(); }
+            else {
+                const html = renderStatusBadge(status);
+                if (cur) { cur.outerHTML = html; } else { actions.insertAdjacentHTML('beforeend', html); }
+            }
+        }
+        if (typeof timeStr === 'string') {
+            const curT = actions.querySelector('.js-time-badge');
+            if (!timeStr) { if (curT) curT.remove(); }
+            else {
+                const html = renderTimeBadge(timeStr);
+                if (curT) { curT.outerHTML = html; } else { actions.insertAdjacentHTML('beforeend', html); }
+            }
+        }
+    } catch {}
+}
+
+async function clearInterviewStatus(reportId) {
+    try {
+        const client = window.Auth && window.Auth.supabase;
+        if (!client) { showToast('未登录', 'error'); return; }
+        const { data } = await client.from('reports').select('content,markdown_output').eq('id', reportId).limit(1).maybeSingle();
+        let mo = {};
+        const raw = String(data?.markdown_output || '');
+        if (raw.trim().startsWith('{')) { try { mo = JSON.parse(raw); } catch { mo = {}; } } else { mo = { md: raw || String(data?.content || '') }; }
+        delete mo.interview_status;
+        const { error } = await client.from('reports').update({ markdown_output: JSON.stringify(mo) }).eq('id', reportId);
+        if (error) throw new Error(error.message || '清除失败');
+        try {
+            let uid = 'guest';
+            try { const { data: sess } = await (window.Auth && window.Auth.getClient ? window.Auth.getClient().auth.getSession() : Promise.resolve({ data: null })); uid = sess?.session?.user?.id || uid; } catch {}
+            if (uid === 'guest') {
+                try { const u = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null); if (u && u.id) uid = u.id; } catch {}
+            }
+            const ov = reportMetaOverrides[reportId] || {};
+            delete ov.interview_status;
+            reportMetaOverrides[reportId] = ov;
+            localStorage.setItem(`report_meta_overrides_${uid}`, JSON.stringify(reportMetaOverrides));
+        } catch {}
+        updateCardStatusLabel(reportId, '');
+        showToast('状态已清除', 'success');
+        await loadMyReports();
+    } catch (e) { showToast(e?.message || '清除失败', 'error'); }
+}
+
+async function clearInterviewTime(reportId) {
+    try {
+        const client = window.Auth && window.Auth.supabase;
+        if (!client) { showToast('未登录', 'error'); return; }
+        const { data } = await client.from('reports').select('content,markdown_output').eq('id', reportId).limit(1).maybeSingle();
+        let mo = {};
+        const raw = String(data?.markdown_output || '');
+        if (raw.trim().startsWith('{')) { try { mo = JSON.parse(raw); } catch { mo = {}; } } else { mo = { md: raw || String(data?.content || '') }; }
+        delete mo.interview_time;
+        const { error } = await client.from('reports').update({ markdown_output: JSON.stringify(mo) }).eq('id', reportId);
+        if (error) throw new Error(error.message || '清除失败');
+        try {
+            let uid = 'guest';
+            try { const { data: sess } = await (window.Auth && window.Auth.getClient ? window.Auth.getClient().auth.getSession() : Promise.resolve({ data: null })); uid = sess?.session?.user?.id || uid; } catch {}
+            if (uid === 'guest') {
+                try { const u = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null); if (u && u.id) uid = u.id; } catch {}
+            }
+            const ov = reportMetaOverrides[reportId] || {};
+            delete ov.interview_time;
+            reportMetaOverrides[reportId] = ov;
+            localStorage.setItem(`report_meta_overrides_${uid}`, JSON.stringify(reportMetaOverrides));
+        } catch {}
+        updateCardStatusLabel(reportId, undefined, '');
+        showToast('面试时间已清除', 'success');
+        await loadMyReports();
+    } catch (e) { showToast(e?.message || '清除失败', 'error'); }
+}
+function viewInterviewRecord(reportId) {
+    try {
+        const base = 'http://127.0.0.1:4000';
+        const path = '/interview-record';
+        const url = new URL(path, base);
+        url.searchParams.set('report_id', String(reportId));
+        window.location.href = url.toString();
+    } catch {
+        showToast('打开面试记录页面失败', 'error');
+    }
+}
+
+async function openInterviewRecordAuto(resumeId, candidate) {
+    try {
+        const client = window.Auth && window.Auth.supabase;
+        const user = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+        const norm = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
+        let idFound = '';
+        if (client && user) {
+            try {
+                let all = null; let err = null;
+                {
+                    const resp = await client
+                        .from('reports')
+                        .select('id,user_id,report_type,candidate_name,title,created_at,markdown_output,content')
+                        .eq('user_id', user.id)
+                        .eq('report_type', 'interview')
+                        .order('created_at', { ascending: false });
+                    all = resp.data; err = resp.error;
+                }
+                if ((!all || all.length === 0) && err && (String(err.code) === '42703' || /column .* does not exist/i.test(err.message || ''))) {
+                    const resp2 = await client
+                        .from('reports')
+                        .select('id,user_id,type,candidate_name,title,created_at,markdown_output,content')
+                        .eq('user_id', user.id)
+                        .eq('type', 'interview')
+                        .order('created_at', { ascending: false });
+                    all = resp2.data;
+                }
+                const getMd = (r) => {
+                    try {
+                        const raw = String(r.markdown_output || '');
+                        if (raw.trim().startsWith('{')) {
+                            let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
+                            if (obj) {
+                                if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
+                                if (typeof obj.md === 'string') return String(obj.md || '');
+                                if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
+                            }
+                        }
+                        const md = raw || String(r.content || '');
+                        return md;
+                    } catch { return String(r.content || ''); }
+                };
+                const candKey = norm(candidate);
+                for (const r of (all || [])) {
+                    let cn = String(r.candidate_name || '');
+                    if (!cn) {
+                        try { const p = extractSummaryFieldsFromMarkdown(getMd(r)); cn = p.candidate_name || ''; } catch {}
+                    }
+                    const key = norm(cn || r.title || '');
+                    if (key && key === candKey) { idFound = String(r.id); break; }
+                }
+            } catch {}
+            if (idFound) {
+                try {
+                    const { data } = await client.from('reports').select('markdown_output,content').eq('id', resumeId).limit(1).maybeSingle();
+                    let mo = {};
+                    const raw = String(data?.markdown_output || '');
+                    if (raw.trim().startsWith('{')) { try { mo = JSON.parse(raw); } catch { mo = {}; } }
+                    else { mo = { md: raw || String(data?.content || '') }; }
+                    mo.interview_link_id = String(idFound);
+                    await client.from('reports').update({ markdown_output: JSON.stringify(mo) }).eq('id', resumeId);
+                } catch {}
+                return viewInterviewRecord(idFound);
+            }
+        }
+        // Local fallback
+        try {
+            const u = user || await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+            const keyLS = u ? `demo_reports_${u.id}` : '';
+            let arr = []; try { arr = keyLS ? JSON.parse(localStorage.getItem(keyLS) || '[]') : []; } catch {}
+            const candKey = norm(candidate);
+            for (const r of arr) {
+                if ((r.type ?? r.report_type) !== 'interview') continue;
+                let md = '';
+                try {
+                    const raw = String(r.markdown_output || '');
+                    if (raw.trim().startsWith('{')) { let obj = JSON.parse(raw); md = String(obj.resume_md || obj.ai_analysis_md || obj.md || ''); }
+                } catch {}
+                let cn = String(r.candidate_name || '');
+                if (!cn && md) { try { const p = extractSummaryFieldsFromMarkdown(md); cn = p.candidate_name || ''; } catch {} }
+                const key = norm(cn || r.title || '');
+                if (key && key === candKey) { idFound = String(r.id); break; }
+            }
+            if (idFound) {
+                try {
+                    const idx = arr.findIndex(r => String(r.id) === String(resumeId));
+                    if (idx >= 0) {
+                        let mo = {}; try { mo = JSON.parse(String(arr[idx].markdown_output || '{}')); } catch { mo = {}; }
+                        mo.interview_link_id = String(idFound);
+                        arr[idx].markdown_output = JSON.stringify(mo);
+                        localStorage.setItem(keyLS, JSON.stringify(arr));
+                    }
+                    localStorage.setItem('interview_link_' + String(resumeId), String(idFound));
+                } catch {}
+                return viewInterviewRecord(idFound);
+            }
+        } catch {}
+        showToast('未找到面试记录', 'warning');
+    } catch { showToast('打开面试记录失败', 'error'); }
+}
+
+async function lazyResolveInterviewLinksCloud(pendingList) {
+    try {
+        const client = window.Auth && window.Auth.supabase;
+        const user = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+        if (!client || !user) return;
+        let all = null; let err = null;
+        {
+            const resp = await client
+                .from('reports')
+                .select('id,user_id,report_type,candidate_name,title,created_at,markdown_output,content')
+                .eq('user_id', user.id)
+                .eq('report_type', 'interview')
+                .order('created_at', { ascending: false });
+            all = resp.data; err = resp.error;
+        }
+        if ((!all || all.length === 0) && err && (String(err.code) === '42703' || /column .* does not exist/i.test(err.message || ''))) {
+            const resp2 = await client
+                .from('reports')
+                .select('id,user_id,type,candidate_name,title,created_at,markdown_output,content')
+                .eq('user_id', user.id)
+                .eq('type', 'interview')
+                .order('created_at', { ascending: false });
+            all = resp2.data;
+        }
+        const norm = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
+        const getMdFromAny = (r) => {
+            try {
+                const raw = String(r.markdown_output || '');
+                if (raw.trim().startsWith('{')) {
+                    let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
+                    if (obj) {
+                        if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
+                        if (typeof obj.md === 'string') return String(obj.md || '');
+                        if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
+                    }
+                }
+                const md = raw || String(r.content || '');
+                return md;
+            } catch { return String(r.content || ''); }
+        };
+        const mapByName = {};
+        for (const r of (all || [])) {
+            const md = getMdFromAny(r);
+            let cn = String(r.candidate_name || '');
+            if ((!cn || !cn.trim()) && md) {
+                try { const p = extractSummaryFieldsFromMarkdown(md); cn = p.candidate_name || ''; } catch {}
+            }
+            const key = norm(cn || r.title || '');
+            if (key && !mapByName[key]) mapByName[key] = String(r.id);
+        }
+        for (const item of pendingList) {
+            const key = norm(item.candidate);
+            const foundId = mapByName[key];
+            if (foundId) {
+                try {
+                    // Update DOM
+                    const escSel = (s) => { try { return CSS.escape(s); } catch { return String(s).replace(/"|'|\\/g,''); } };
+                    const card = document.querySelector(`.report-item[data-report-id="${escSel(String(item.id))}"] .report-actions`);
+                    if (card && !card.querySelector('.btn-outline-purple')) {
+                        card.insertAdjacentHTML('beforeend', renderInterviewRecordButtonHtml(foundId));
+                    }
+                } catch {}
+                try {
+                    // Persist to resume markdown_output for next refresh
+                    const { data } = await client.from('reports').select('markdown_output,content').eq('id', item.id).limit(1).maybeSingle();
+                    let mo = {};
+                    const raw = String(data?.markdown_output || '');
+                    if (raw.trim().startsWith('{')) { try { mo = JSON.parse(raw); } catch { mo = {}; } }
+                    else { mo = { md: raw || String(data?.content || '') }; }
+                    mo.interview_link_id = String(foundId);
+                    await client.from('reports').update({ markdown_output: JSON.stringify(mo) }).eq('id', item.id);
+                } catch {}
+            }
+        }
+    } catch {}
+}
+
+async function lazyResolveInterviewLinksLocal(pendingList, localItems) {
+    try {
+        const norm = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
+        const mapByName = {};
+        for (const r of localItems) {
+            const rt = (r.type ?? r.report_type) || '';
+            if (rt !== 'interview') continue;
+            let md = '';
+            try {
+                const raw = String(r.markdown_output || '');
+                if (raw.trim().startsWith('{')) {
+                    let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
+                    if (obj) {
+                        md = String(obj.resume_md || obj.ai_analysis_md || obj.md || '');
+                    }
+                }
+                if (!md) md = String(r.content || '');
+            } catch { md = String(r.content || ''); }
+            let cn = String(r.candidate_name || '');
+            if (!cn && md) {
+                try { const p = extractSummaryFieldsFromMarkdown(md); cn = p.candidate_name || ''; } catch {}
+            }
+            const key = norm(cn || r.title || '');
+            if (key && !mapByName[key]) mapByName[key] = String(r.id);
+        }
+        const user = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+        const keyLS = user ? `demo_reports_${user.id}` : '';
+        let arr = [];
+        try { arr = keyLS ? JSON.parse(localStorage.getItem(keyLS) || '[]') : []; } catch { arr = []; }
+        for (const item of pendingList) {
+            const foundId = mapByName[norm(item.candidate)];
+            if (foundId) {
+                try {
+                    const escSel = (s) => { try { return CSS.escape(s); } catch { return String(s).replace(/"|'|\\/g,''); } };
+                    const card = document.querySelector(`.report-item[data-report-id="${escSel(String(item.id))}"] .report-actions`);
+                    if (card && !card.querySelector('.btn-outline-purple')) {
+                        card.insertAdjacentHTML('beforeend', renderInterviewRecordButtonHtml(foundId));
+                    }
+                } catch {}
+                try {
+                    const idx = arr.findIndex(r => String(r.id) === String(item.id));
+                    if (idx >= 0) {
+                        let mo = {};
+                        try { mo = JSON.parse(String(arr[idx].markdown_output || '{}')); } catch { mo = {}; }
+                        mo.interview_link_id = String(foundId);
+                        arr[idx].markdown_output = JSON.stringify(mo);
+                        localStorage.setItem(keyLS, JSON.stringify(arr));
+                    }
+                    localStorage.setItem('interview_link_' + String(item.id), String(foundId));
+                } catch {}
+            }
+        }
+    } catch {}
 }
 
 // 下载保存的报告
@@ -1197,13 +2274,22 @@ async function getReportContentById(reportId) {
             data = resp2.data; error = resp2.error;
         }
         if (error) throw error;
+        const moStr = String(data?.markdown_output || '');
+        if (moStr.trim().startsWith('{')) {
+            try { const mo = JSON.parse(moStr); if (mo && typeof mo.md === 'string') return mo.md; } catch {}
+        }
         return (data && (data.content ?? data.markdown_output)) || '';
     } else {
         const key = `demo_reports_${user?.id || ''}`;
         let items = [];
         try { items = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
         const found = items.find(r => r.id === reportId);
-        return found ? (found.content ?? found.markdown_output ?? '') : '';
+        if (!found) return '';
+        const moStr = String(found.markdown_output || '');
+        if (moStr.trim().startsWith('{')) {
+            try { const mo = JSON.parse(moStr); if (mo && typeof mo.md === 'string') return mo.md; } catch {}
+        }
+        return found.content ?? found.markdown_output ?? '';
     }
 }
 
@@ -1541,6 +2627,10 @@ function hideLoading() {
     document.getElementById('loading-overlay').style.display = 'none';
 }
 
+function showLoadingState(on) {
+    try { if (on) { showLoading(); } else { hideLoading(); } } catch {}
+}
+
 function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
     if (!toast) return;
@@ -1720,35 +2810,144 @@ function extractSummaryFieldsFromMarkdown(markdown) {
     let candidate_name = '';
     let job_title = '';
     let match_score = null;
-
+    const strip = (s) => String(s || '').replace(/<br\s*\/>/gi, ' ').replace(/<br>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const validJob = (s) => {
+        const t = strip(s);
+        if (!t) return '';
+        if (t.length > 40) return '';
+        if (/[•\d]\s*[\.)]/.test(t)) return '';
+        if (/(匹配度|评估|结论|建议|差距|不足|能力|稳定|经验|画像|要求)/i.test(t)) return '';
+        return t;
+    };
+    const grabHtmlTableCell = (keys) => {
+        const re = new RegExp(`<tr[\\s\\S]*?<td[\\s\\S]*?>\\s*(?:${keys.join('|')})\\s*<\\/td>\\s*<td[\\s\\S]*?>\\s*([\\s\\S]*?)<\\/td>`, 'i');
+        const m = text.match(re);
+        if (m && m[1]) { const v = strip(m[1]); if (v) return v; }
+        return '';
+    };
     const grab = (regex) => {
         for (const line of lines) {
+            if (/^\|/.test(line)) continue;
             const m = line.match(regex);
-            if (m && m[1]) {
-                return m[1].trim();
+            if (m && m[1]) return strip(m[1]);
+        }
+        return '';
+    };
+    const grabTable = (keys) => {
+        for (const line of lines) {
+            if (!/^\|/.test(line)) continue;
+            const cols = line.split('|').map(s => s.trim());
+            for (let i = 0; i < cols.length - 1; i++) {
+                const k = cols[i];
+                const v = cols[i + 1];
+                if (new RegExp(`^(?:${keys.join('|')})$`, 'i').test(k)) {
+                    const out = strip(v);
+                    if (out) return out;
+                }
             }
         }
         return '';
     };
-
-    // 姓名提取（中英兼容）
     candidate_name = grab(/^(?:\s*[-*]?\s*)?(?:姓名|候选人|面试者|Name|Candidate|Interviewee)\s*[：:]\s*([^\n]+)/i);
     if (!candidate_name) {
-        // 从可能的标题中兜底，例如 "# 面试分析报告\n**面试者**: 张三"
-        const m = text.match(/(?:面试者|姓名|Name|Interviewee)\s*[:：]\s*([^\n]+)/i);
-        if (m) candidate_name = m[1].trim();
+        const t = text.match(/(?:候选人|面试者|姓名|Name|Candidate|Interviewee)\s*[:：]\s*([^\n]+)/i);
+        if (t && t[1]) candidate_name = strip(t[1]);
+        if (!candidate_name) candidate_name = grabTable(['姓名','候选人','面试者','Name','Candidate','Interviewee']);
     }
-
-    // 岗位/职位提取
-    job_title = grab(/^(?:\s*[-*]?\s*)?(?:岗位|职位|岗位名称|职位名称|Job\s*Title|Position|Role)\s*[：:]\s*([^\n]+)/i);
+    const jobKeys = ['面试岗位','应聘岗位','招聘岗位','岗位名称','职位名称','Job\\s*Title','Position','Role'];
+    job_title = grab(new RegExp(`^(?:\\s*[-*]?\\s*)?(?:${jobKeys.join('|')})\\s*[：:]\\s*([^\\n]+)$`, 'i'));
+    if (!job_title) job_title = grabTable(['面试岗位','应聘岗位','招聘岗位','岗位名称','职位名称']);
     if (!job_title) {
-        const m = text.match(/(?:岗位|职位|Job\s*Title|Position|Role)\s*[:：]\s*([^\n]+)/i);
-        if (m) job_title = m[1].trim();
+        const cell = grabHtmlTableCell(['面试岗位','应聘岗位','招聘岗位','岗位名称','职位名称','岗位','Job\\s*Title','Position','Role']);
+        if (cell) { const v = validJob(cell); if (v) job_title = v; }
     }
-
-    // 优先提取整体“综合匹配度/总体匹配度/总匹配度”
-    let scoreStr = grab(/^(?:\s*[-*]?\s*)?(?:综合匹配度|总体匹配度|总匹配度|综合匹配)\s*[：:]\s*([0-9]{1,3})\s*%/i);
-    // 其次在“评估结论/候选人详细评估/综合评估”附近提取
+    if (!job_title) {
+        for (const line of lines) {
+            if (/^\|/.test(line)) continue;
+            const h = line.match(/^#{1,6}\s*(.+)$/);
+            const src = (h && h[1]) ? h[1] : line;
+            const m2 = src.match(/([^\n]+?)\s*岗位(?:人才评估|评估报告|报告|画像)?/);
+            if (m2 && validJob(m2[1])) { job_title = validJob(m2[1]); break; }
+        }
+    }
+    if (!job_title) {
+        const g = text.match(new RegExp(`(?:${jobKeys.join('|')})\s*[:：]\s*([^\n]+)`, 'i'));
+        if (g && g[1]) {
+            const v = validJob(g[1]);
+            if (v) job_title = v;
+        }
+    }
+    if (!job_title) {
+        const mm = Array.from(text.matchAll(new RegExp(`(?:${jobKeys.join('|')})\\s*[:：]?\\s*([^\\n%|]{2,40})`, 'gi'))).map(m => strip(m[1])).filter(x => validJob(x));
+        if (mm.length) job_title = mm[mm.length - 1];
+    }
+    if (!job_title && candidate_name) {
+        const mbr = candidate_name.match(/(?:\(|（|\[)\s*([^\)\]）]{2,40})\s*(?:\)|）|\])/);
+        if (mbr && mbr[1]) {
+            const v = validJob(mbr[1]);
+            if (v) {
+                job_title = v;
+                candidate_name = strip(candidate_name.replace(/(?:\(|（|\[)[^\)\]）]{2,40}(?:\)|）|\])/, ''));
+            }
+        }
+    }
+    let scoreStr = null;
+    {
+        const anchorIdx = (() => {
+            for (let i = 0; i < lines.length; i++) {
+                const l = lines[i];
+                if (/招聘决策摘要|第一部分/i.test(l)) return i;
+            }
+            return -1;
+        })();
+        if (anchorIdx !== -1) {
+            const end = Math.min(lines.length, anchorIdx + 80);
+            const subText = lines.slice(anchorIdx, end).join('\n');
+            let mHtml = subText.match(/<td[^>]*>\s*匹配度\s*<\/td>\s*<td[^>]*>\s*([0-9]{1,3})\s*[%％]/i);
+            if (mHtml && mHtml[1]) { scoreStr = mHtml[1]; }
+            if (!scoreStr) {
+                for (let j = anchorIdx; j < end; j++) {
+                    const l = lines[j];
+                    if (/^\|/.test(l)) {
+                        const cols = l.split('|').map(s => s.trim());
+                        const isSep = cols.some(c => /^-+$/.test(c));
+                        if (isSep) continue;
+                        for (let i = 0; i < cols.length - 1; i++) {
+                            if (/^匹配度$/i.test(cols[i])) {
+                                const m = (cols[i + 1] || '').match(/([0-9]{1,3})\s*[%％]/);
+                                if (m) { scoreStr = m[1]; break; }
+                            }
+                        }
+                        if (scoreStr) break;
+                    } else {
+                        const m = l.match(/匹配度\s*[:：]?\s*([0-9]{1,3})\s*[%％]/i);
+                        if (m) { scoreStr = m[1]; break; }
+                        if (/匹配度/i.test(l)) {
+                            for (let k = j + 1; k < Math.min(j + 4, end); k++) {
+                                const lk = lines[k];
+                                const mk = lk.match(/([0-9]{1,3})\s*[%％]/);
+                                if (mk) { scoreStr = mk[1]; break; }
+                            }
+                            if (scoreStr) break;
+                        }
+                    }
+            }
+        }
+    }
+    }
+    if (!scoreStr) scoreStr = grab(/^(?:\s*[-*]?\s*)?(?:综合匹配度|总体匹配度|总匹配度|岗位匹配度|综合评分|综合匹配|匹配度)\s*[：:]\s*([0-9]{1,3})\s*[%％]/i);
+    if (!scoreStr) {
+        const cell = grabTable(['综合匹配度','总体匹配度','总匹配度','岗位匹配度','综合评分','匹配度']);
+        if (cell) { const m = cell.match(/([0-9]{1,3})\s*%/); if (m) scoreStr = m[1]; }
+    }
+    if (!scoreStr) {
+        const cell2 = grabHtmlTableCell(['综合匹配度','总体匹配度','总匹配度','岗位匹配度','综合评分','匹配度']);
+        if (cell2) { const m2 = cell2.match(/([0-9]{1,3})\s*[%％]/); if (m2) scoreStr = m2[1]; }
+    }
+    if (!scoreStr) {
+        const mRow = text.match(/(^|\n)\s*\|\s*匹配度\s*\|\s*([0-9]{1,3})\s*%/mi);
+        if (mRow && mRow[2]) scoreStr = mRow[2];
+    }
     if (!scoreStr) {
         const sectionRe = /评估结论|候选人详细评估|综合评估|Evaluation|Summary/i;
         for (let i = 0; i < lines.length; i++) {
@@ -1756,32 +2955,31 @@ function extractSummaryFieldsFromMarkdown(markdown) {
                 for (let j = i; j < Math.min(i + 20, lines.length); j++) {
                     const l = lines[j];
                     if (/^\|/.test(l)) continue;
-                    const m = l.match(/(?:综合匹配度|匹配度)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+                    let m = l.match(/(?:综合匹配度|岗位匹配度|匹配度|综合评分)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+                    if (!m) m = l.match(/(?:综合匹配度|岗位匹配度|匹配度|综合评分)\s*([0-9]{1,3})\s*%/i);
                     if (m && m[1]) { scoreStr = m[1]; break; }
                 }
                 if (scoreStr) break;
             }
         }
     }
-    // 再次兜底：锚定“匹配度”行且排除易混淆词
     if (!scoreStr) {
         for (const line of lines) {
             if (/^\|/.test(line)) continue;
             if (/命中率|命中数|维度|得分|分值|points|硬性|V-Raise/i.test(line)) continue;
-            const m = line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|综合匹配)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+            let m = line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*[：:]\s*([0-9]{1,3})\s*%/i);
+            if (!m) m = line.match(/^(?:\s*[-*]?\s*)?(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*([0-9]{1,3})\s*%/i);
             if (m && m[1]) { scoreStr = m[1]; break; }
         }
     }
-    // 最后兜底：全文搜索“匹配度：X%”，取出现最靠后的一个（更接近结论段）
     if (!scoreStr) {
-        const all = Array.from(text.matchAll(/(?:匹配度|综合匹配)\s*[:：]\s*([0-9]{1,3})\s*%/gi)).map(m => m[1]);
+        const all = Array.from(text.matchAll(/(?:匹配度|岗位匹配度|综合匹配|综合评分)\s*[:：]?\s*([0-9]{1,3})\s*%/gi)).map(m => m[1]);
         if (all.length) scoreStr = all[all.length - 1];
     }
     if (scoreStr) {
         const num = Math.max(0, Math.min(100, parseInt(scoreStr, 10)));
         if (!Number.isNaN(num)) match_score = num;
     }
-
     return { candidate_name, job_title, match_score };
 }
 
@@ -1797,3 +2995,54 @@ if (typeof showHome === 'function') window.showHome = showHome;
 if (typeof showInterviewAnalysis === 'function') window.showInterviewAnalysis = showInterviewAnalysis;
 if (typeof showMyReports === 'function') window.showMyReports = showMyReports;
 if (typeof loadMyReports === 'function') window.loadMyReports = loadMyReports;
+async function waitForUser(maxMs = 2000) {
+  try {
+    const u0 = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+    if (u0) return u0;
+    return await new Promise((resolve) => {
+      let done = false;
+      const to = setTimeout(() => { if (!done) { done = true; resolve(null); } }, maxMs);
+      const handler = (e) => { if (done) return; done = true; clearTimeout(to); try { window.removeEventListener('auth-changed', handler); } catch {} resolve(e.detail?.user || null); };
+      try { window.addEventListener('auth-changed', handler, { once: true }); } catch { resolve(null); }
+    });
+  } catch { return null; }
+}
+async function trySyncLocalReports(user) {
+    try {
+        const client = window.Auth && window.Auth.supabase;
+        if (!client || !user) return;
+        const syncKey = `demo_sync_done_${user.id}`;
+        try { if (localStorage.getItem(syncKey) === 'true') return; } catch {}
+        const { data: sessionData } = await client.auth.getSession();
+        const token = sessionData?.session?.access_token || '';
+        if (!token) return;
+        const key = `demo_reports_${user.id}`;
+        let items = [];
+        try { items = JSON.parse(localStorage.getItem(key) || '[]') || []; } catch { items = []; }
+        if (!Array.isArray(items) || items.length === 0) return;
+        const remain = [];
+        for (const it of items) {
+            try {
+                const payload = {
+                    user_id: user.id,
+                    title: it.title,
+                    report_type: it.report_type || it.type || 'resume',
+                    content: it.content || '',
+                    markdown_output: it.markdown_output || '',
+                    candidate_name: it.candidate_name ?? null,
+                    job_title: it.job_title ?? null,
+                    match_score: it.match_score ?? null,
+                    created_at: it.created_at || new Date().toISOString(),
+                };
+                const resp = await fetch('/api/reports-save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify(payload),
+                });
+                if (!resp.ok) { remain.push(it); continue; }
+            } catch { remain.push(it); }
+        }
+        try { localStorage.setItem(key, JSON.stringify(remain)); } catch {}
+        try { localStorage.setItem(syncKey, 'true'); } catch {}
+    } catch {}
+}

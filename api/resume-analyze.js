@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid JSON body' });
     }
 
-    const { fileBase64, fileName = 'resume.pdf', jd = '' } = payload;
+    const { fileBase64, fileName = 'resume.pdf', jd = '', prompt = '' } = payload;
     const COZE_PAT = process.env.COZE_PAT || STATIC_SECRETS.COZE_PAT;
     if (!COZE_PAT) {
       return res.status(500).json({ error: 'COZE_PAT is not set (env or STATIC_SECRETS.COZE_PAT)' });
@@ -71,7 +71,9 @@ export default async function handler(req, res) {
       workflow_id: resumeWorkflowId,
       parameters: {
         files: [JSON.stringify({ file_id: fileId })],
-        JD: jd,
+        JD: prompt ? `${jd}\n\n[提示词]\n${prompt}` : jd,
+        PROMPT: prompt,
+        instructions: prompt,
       },
     };
 
