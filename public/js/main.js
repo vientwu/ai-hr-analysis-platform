@@ -651,6 +651,7 @@ function openLoginModal() {
         errorDiv.textContent = '';
     }
     if (typeof switchLoginMode === 'function') switchLoginMode('login');
+    try { applyRememberedCreds(); } catch {}
 }
 
 function closeLoginModal() {
@@ -817,6 +818,28 @@ async function handleEmailLogin() {
             } else {
                 closeLoginModal();
                 showToast('登录成功！', 'success');
+                try {
+                    const re = document.getElementById('remember-email');
+                    const rp = document.getElementById('remember-password');
+                    if (re && re.checked) { try { localStorage.setItem('remember_email', email); } catch {} } else { try { localStorage.removeItem('remember_email'); } catch {} }
+                    if (rp && rp.checked) {
+                        try {
+                            const keyB64 = localStorage.getItem('remember_key');
+                            let keyBytes = keyB64 ? fromBase64(keyB64) : null;
+                            if (!keyBytes || !keyBytes.length) {
+                                const k = new Uint8Array(32);
+                                if (crypto && crypto.getRandomValues) crypto.getRandomValues(k); else { for (let i=0;i<k.length;i++) k[i] = Math.floor(Math.random()*256); }
+                                localStorage.setItem('remember_key', toBase64(k));
+                                keyBytes = k;
+                            }
+                            const enc = await encryptText(keyBytes, password);
+                            localStorage.setItem('remember_password_enc', enc.cipher);
+                            localStorage.setItem('remember_password_iv', enc.iv);
+                        } catch {}
+                    } else {
+                        try { localStorage.removeItem('remember_password_enc'); localStorage.removeItem('remember_password_iv'); } catch {}
+                    }
+                } catch {}
             }
         } else {
             showLoginError('认证服务未初始化');
@@ -1010,6 +1033,60 @@ function openForgotMode() { switchLoginMode('forgot'); }
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+}
+
+function toBase64(bytes) {
+    let s = '';
+    const len = bytes.length;
+    for (let i = 0; i < len; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+}
+function fromBase64(b64) {
+    const s = atob(b64);
+    const out = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+    return out;
+}
+async function encryptText(keyBytes, text) {
+    const iv = new Uint8Array(12);
+    if (crypto && crypto.getRandomValues) crypto.getRandomValues(iv); else { for (let i=0;i<iv.length;i++) iv[i] = Math.floor(Math.random()*256); }
+    const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt']);
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc).catch(() => null);
+    if (!buf) throw new Error('encryptFailed');
+    return { cipher: toBase64(new Uint8Array(buf)), iv: toBase64(iv) };
+}
+async function decryptText(keyBytes, cipherB64, ivB64) {
+    const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
+    const iv = fromBase64(ivB64);
+    const data = fromBase64(cipherB64);
+    const buf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data).catch(() => null);
+    if (!buf) return '';
+    return new TextDecoder().decode(buf);
+}
+async function applyRememberedCreds() {
+    try {
+        const e = localStorage.getItem('remember_email') || '';
+        const enc = localStorage.getItem('remember_password_enc') || '';
+        const iv = localStorage.getItem('remember_password_iv') || '';
+        const emailEl = document.getElementById('login-email');
+        const pwdEl = document.getElementById('login-password');
+        const reEl = document.getElementById('remember-email');
+        const rpEl = document.getElementById('remember-password');
+        if (emailEl && e) emailEl.value = e;
+        if (reEl) reEl.checked = !!e;
+        if (enc && iv) {
+            try {
+                const keyB64 = localStorage.getItem('remember_key');
+                const key = keyB64 ? fromBase64(keyB64) : null;
+                if (key) {
+                    const pwd = await decryptText(key, enc, iv);
+                    if (pwdEl) pwdEl.value = pwd;
+                    if (rpEl) rpEl.checked = !!pwd;
+                }
+            } catch {}
+        }
+    } catch {}
 }
 
 // 分析函数
