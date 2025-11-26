@@ -40,14 +40,17 @@
   async function loadReport() {
     const id = qs('report_id');
     if (!id) return;
+    const onlineHost = (() => { try { const h = window.location.hostname; return !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(h); } catch { return false; } })();
     try {
-      try {
-        const raw = localStorage.getItem(`interview_source_${id}`) || '';
-        if (raw) {
-          const obj = JSON.parse(raw);
-          report = { id, content: obj.md || '', candidate_name: obj.candidate_name || '', job_title: obj.job_title || '', match_score: obj.match_score ?? null };
-        }
-      } catch {}
+      if (!onlineHost) {
+        try {
+          const raw = localStorage.getItem(`interview_source_${id}`) || '';
+          if (raw) {
+            const obj = JSON.parse(raw);
+            report = { id, content: obj.md || '', candidate_name: obj.candidate_name || '', job_title: obj.job_title || '', match_score: obj.match_score ?? null };
+          }
+        } catch {}
+      }
       if (report) {
         resumeMarkdown = String(report.content || '');
         candidateName = String(report.candidate_name || '');
@@ -71,39 +74,43 @@
       }
     } catch {}
     if (!report) {
-      try {
-        const cache = (typeof window !== 'undefined') ? (window.reportsCache || {}) : {};
-        const cached = cache[String(id)];
-        if (cached && typeof cached.md === 'string') {
-          report = { id, content: cached.md, candidate_name: cached.candidate_name || '', job_title: cached.job_title || '', match_score: cached.match_score ?? null };
-        }
-      } catch {}
+      if (!onlineHost) {
+        try {
+          const cache = (typeof window !== 'undefined') ? (window.reportsCache || {}) : {};
+          const cached = cache[String(id)];
+          if (cached && typeof cached.md === 'string') {
+            report = { id, content: cached.md, candidate_name: cached.candidate_name || '', job_title: cached.job_title || '', match_score: cached.match_score ?? null };
+          }
+        } catch {}
+      }
     }
     if (!report) {
-      try {
-        const u = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
-        const uid = u ? u.id : null;
-        if (uid) {
-          const key = `demo_reports_${uid}`;
-          let items = [];
-          try { items = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
-          const found = items.find(r => String(r.id) === String(id));
-          if (found) report = found;
-        }
-        if (!report && !API_BASE) {
-          const token = await getAuthToken();
-          const resp = await fetch('/api/reports-list', {
-            method: 'GET',
-            headers: token ? { Authorization: `Bearer ${token}` } : {}
-          });
-          if (resp.ok) {
-            const json = await resp.json();
-            const arr = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
-            const found2 = arr.find(r => String(r.id) === String(id));
-            if (found2) report = found2;
+      if (!onlineHost) {
+        try {
+          const u = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+          const uid = u ? u.id : null;
+          if (uid) {
+            const key = `demo_reports_${uid}`;
+            let items = [];
+            try { items = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+            const found = items.find(r => String(r.id) === String(id));
+            if (found) report = found;
           }
-        }
-      } catch {}
+          if (!report && !API_BASE) {
+            const token = await getAuthToken();
+            const resp = await fetch('/api/reports-list', {
+              method: 'GET',
+              headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            if (resp.ok) {
+              const json = await resp.json();
+              const arr = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
+              const found2 = arr.find(r => String(r.id) === String(id));
+              if (found2) report = found2;
+            }
+          }
+        } catch {}
+      }
     }
     if (report) {
       resumeMarkdown = String(report.content || '');

@@ -1355,7 +1355,7 @@ async function loadMyReports() {
                 if (token) {
                     const resp = await window.Auth.supabase
                         .from('reports')
-                        .select('id,title,type,report_type,created_at,candidate_name,job_title,match_score,is_starred,content,markdown_output')
+                        .select('id,title,type,report_type,created_at,candidate_name,job_title,match_score,is_starred')
                         .eq('user_id', user.id)
                         .order('created_at', { ascending: false });
                     reports = resp.data; error = resp.error;
@@ -1388,45 +1388,30 @@ async function loadMyReports() {
                         if (starMap && starMap[rid]) return { ...r, is_starred: true };
                         return r;
                     });
+                    const onlineHost = (() => { try { const h = window.location.hostname; return !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(h); } catch { return false; } })();
                     let mergedAll = merged;
-                    try {
-                        const localKey = `demo_reports_${user.id}`;
-                        const localItems = JSON.parse(localStorage.getItem(localKey) || '[]') || [];
-                        if (Array.isArray(localItems) && localItems.length) {
-                            const ids = new Set(merged.map(r => String(r.id)));
-                            for (const it of localItems) { if (!ids.has(String(it.id))) mergedAll.push(it); }
-                        }
-                    } catch {}
+                    if (!onlineHost) {
+                        try {
+                            const localKey = `demo_reports_${user.id}`;
+                            const localItems = JSON.parse(localStorage.getItem(localKey) || '[]') || [];
+                            if (Array.isArray(localItems) && localItems.length) {
+                                const ids = new Set(merged.map(r => String(r.id)));
+                                for (const it of localItems) { if (!ids.has(String(it.id))) mergedAll.push(it); }
+                            }
+                        } catch {}
+                    }
                     const processed = applyFiltersAndSort(mergedAll, starMap, false);
                     let overrides = {};
                     try {
                         overrides = JSON.parse(localStorage.getItem(`report_meta_overrides_${user.id}`) || '{}') || {};
                         reportMetaOverrides = overrides;
                     } catch { overrides = {}; }
-                    try { window.reportsCache = window.reportsCache || {}; } catch {}
-                    const getMdFromReport = (r) => {
-                        try {
-                            const raw = String(r.markdown_output || '');
-                            if (raw.trim().startsWith('{')) {
-                                let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
-                                if (obj) {
-                                    if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
-                                    if (typeof obj.md === 'string') return String(obj.md || '');
-                                    if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
-                                }
-                            }
-                            const md = raw || String(r.content || '');
-                            return md;
-                        } catch { return String(r.content || ''); }
-                    };
                     const normName = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
                     const interviewByName = {};
                     for (const r of mergedAll) {
                         const rt = (r.type ?? r.report_type) || '';
                         if (rt === 'interview') {
-                            const mdInt = getMdFromReport(r);
-                            const parsedInt = extractSummaryFieldsFromMarkdown(mdInt);
-                            const nmRaw = String(parsedInt.candidate_name || r.candidate_name || r.title || '').trim();
+                            const nmRaw = String(r.candidate_name || r.title || '').trim();
                             const nm = normName(nmRaw);
                             if (nm) interviewByName[nm] = r.id;
                         }
@@ -1434,15 +1419,10 @@ async function loadMyReports() {
                     const display = processed.filter(r => ((r.type ?? r.report_type) === 'resume'));
                     const pendingLinkReports = [];
                     const html = display.map(report => {
-                        const md = getMdFromReport(report);
-                        try { window.reportsCache[String(report.id)] = { md }; } catch {}
-                        const parsed = extractSummaryFieldsFromMarkdown(md);
                         const clean = (s) => String(s || '').replace(/<br\s*\/>/gi, ' ').replace(/<br>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                        const candidate = clean(parsed.candidate_name || '未命名候选人');
-                        const job = clean(parsed.job_title || '未知岗位');
-                        let mo = {};
-                        try { mo = JSON.parse(String(report.markdown_output || '{}')); } catch { mo = {}; }
-                        const rawScore = (parsed.match_score != null ? parsed.match_score : (mo.match_score != null ? mo.match_score : (report.match_score ?? null)));
+                        const candidate = clean(report.candidate_name || report.title || '未命名候选人');
+                        const job = clean(report.job_title || '未知岗位');
+                        const rawScore = (report.match_score ?? null);
                         const numScore = (() => {
                             if (rawScore === null || rawScore === undefined || rawScore === '') return null;
                             const n = parseInt(String(rawScore).trim(), 10);
@@ -1453,9 +1433,8 @@ async function loadMyReports() {
                         const reportTypeText = (report.type ?? report.report_type) === 'resume' ? '简历分析' : '面试分析';
                         const safeTitle = candidate || '未命名候选人';
                         const isStarred = (report.is_starred === true) || Boolean(starMap[report.id]);
-                        
-                        let status = mo.interview_status || '';
-                        let timeStr = mo.interview_time || '';
+                        let status = '';
+                        let timeStr = '';
                         const ov = overrides[String(report.id)] || {};
                         if (ov.interview_status) status = ov.interview_status;
                         if (ov.interview_time) timeStr = ov.interview_time;
@@ -1476,10 +1455,6 @@ async function loadMyReports() {
                             return key ? interviewByName[key] : null;
                         })();
                         if (!linkedInterviewId) {
-                            let mo = {};
-                            try { mo = JSON.parse(String(report.markdown_output || '{}')); } catch { mo = {}; }
-                            const lid = mo && mo.interview_link_id ? String(mo.interview_link_id) : '';
-                            if (lid) linkedInterviewId = lid;
                         }
                         if (!linkedInterviewId) {
                             try {
@@ -1595,156 +1570,219 @@ async function loadMyReports() {
                             })();
                         }
                     } catch {}
+                    try {
+                        const missingIds = display.filter(r => {
+                            const t = (r.type ?? r.report_type);
+                            return t === 'resume' && (!r.candidate_name || !r.job_title || (r.match_score == null));
+                        }).map(r => String(r.id));
+                        if (missingIds.length) {
+                            (async () => {
+                                try {
+                                    const client2 = window.Auth && window.Auth.supabase;
+                                    const user2 = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+                                    if (!client2 || !user2) return;
+                                    for (const rid of missingIds) {
+                                        try {
+                                            const { data } = await client2.from('reports').select('id,candidate_name,job_title,match_score,markdown_output,content').eq('user_id', user2.id).eq('id', rid).limit(1).maybeSingle();
+                                            if (!data) continue;
+                                            let cn = String(data.candidate_name || '');
+                                            let jt = String(data.job_title || '');
+                                            let ms = (data.match_score != null) ? Number(data.match_score) : null;
+                                            let mdFill = '';
+                                            if ((!cn || !jt || ms == null)) {
+                                                let mo = {};
+                                                const raw = String(data.markdown_output || '');
+                                                if (raw.trim().startsWith('{')) { try { mo = JSON.parse(raw); } catch { mo = {}; } }
+                                                else { mo = { md: raw || String(data.content || '') }; }
+                                                const mdf = String(mo.resume_md || mo.md || mo.ai_analysis_md || String(data.content || ''));
+                                                if (mdf) {
+                                                    const p = extractSummaryFieldsFromMarkdown(mdf);
+                                                    cn = cn || String(p.candidate_name || '');
+                                                    jt = jt || String(p.job_title || '');
+                                                    if (ms == null && p.match_score != null) ms = Number(p.match_score);
+                                                    mdFill = mdf;
+                                                }
+                                            }
+                                            try { await client2.from('reports').update({ candidate_name: cn || null, job_title: jt || null, match_score: ms }).eq('id', rid).eq('user_id', user2.id); } catch {}
+                                            try {
+                                                const escSel = (s) => { try { return CSS.escape(s); } catch { return String(s).replace(/"|'|\\/g,''); } };
+                                                const card = document.querySelector(`.report-item[data-report-id="${escSel(String(rid))}"]`);
+                                                if (card) {
+                                                    const nameEl = card.querySelector('.report-header-left h4');
+                                                    const summaryEl = card.querySelector('.report-summary');
+                                                    if (nameEl) nameEl.textContent = (cn || '未命名候选人');
+                                                    if (summaryEl) {
+                                                        const scoreText2 = (ms != null) ? `${Math.round(Number(ms))}%` : '未知';
+                                                        summaryEl.textContent = `岗位：${jt || '未知岗位'}｜匹配度：${scoreText2}`;
+                                                    }
+                                                }
+                                            } catch {}
+                                            try { if (mdFill) { window.reportsCache = window.reportsCache || {}; window.reportsCache[String(rid)] = { md: mdFill, candidate_name: cn || '', job_title: jt || '', match_score: ms ?? null }; } } catch {}
+                                        } catch {}
+                                    }
+                                } catch {}
+                            })();
+                        }
+                    } catch {}
                     try { myReportsCache = { uid: user.id, html, ts: Date.now() }; } catch {}
                 } else {
-                    try {
-                        const localKey = `demo_reports_${user.id}`;
-                        const localItems = JSON.parse(localStorage.getItem(localKey) || '[]') || [];
-                        if (Array.isArray(localItems) && localItems.length) {
-                            const processed = applyFiltersAndSort(localItems, {}, false);
-                            const getMdFromLocal = (r) => {
-                                try {
-                                    const raw = String(r.markdown_output || '');
-                                    if (raw.trim().startsWith('{')) {
-                                        let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
-                                        if (obj) {
-                                            if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
-                                            if (typeof obj.md === 'string') return String(obj.md || '');
-                                            if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
-                                        }
-                                    }
-                                    const md = raw || String(r.content || '');
-                                    return md;
-                                } catch { return String(r.content || ''); }
-                            };
-                            const interviewByNameLocal = {};
-                            const normNameLocal = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
-                            for (const r of localItems) {
-                                const rt = (r.type ?? r.report_type) || '';
-                                if (rt === 'interview') {
-                                    const mdInt = getMdFromLocal(r);
-                                    const parsedInt = extractSummaryFieldsFromMarkdown(mdInt);
-                                    const nmRaw = String(parsedInt.candidate_name || r.candidate_name || r.title || '').trim();
-                                    const nm = normNameLocal(nmRaw);
-                                    if (nm) interviewByNameLocal[nm] = r.id;
-                                }
-                            }
-                            const displayLocal = processed.filter(r => ((r.type ?? r.report_type) === 'resume'));
-                            const pendingLocal = [];
-                            const html = displayLocal.map(report => {
-                                const md = getMdFromLocal(report);
-                                const parsed = extractSummaryFieldsFromMarkdown(md);
-                                const clean = (s) => String(s || '').replace(/<br\s*\/>/gi, ' ').replace(/<br>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                                const candidate = clean(parsed.candidate_name || '未命名候选人');
-                                const job = clean(parsed.job_title || '未知岗位');
-                                const rawScore = (parsed.match_score != null ? parsed.match_score : (report.match_score ?? null));
-                                const numScore = (() => {
-                                    if (rawScore === null || rawScore === undefined || rawScore === '') return null;
-                                    const n = parseInt(String(rawScore).trim(), 10);
-                                    if (Number.isFinite(n)) return Math.max(0, Math.min(100, n));
-                                    return null;
-                                })();
-                                const scoreText = (numScore !== null) ? `${Math.round(numScore)}%` : '未知';
-                                const reportTypeText = '简历分析';
-                                const safeTitle = candidate || '未命名候选人';
-                                const normName = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
-                                let linkedInterviewId = (() => {
-                                    const key = normName(candidate);
-                                    return key ? interviewByNameLocal[key] : null;
-                                })();
-                                if (!linkedInterviewId) {
-                                    let mo = {};
-                                    try { mo = JSON.parse(String(report.markdown_output || '{}')); } catch { mo = {}; }
-                                    const lid = mo && mo.interview_link_id ? String(mo.interview_link_id) : '';
-                                    if (lid) linkedInterviewId = lid;
-                                }
-                                if (!linkedInterviewId) {
+                    const onlineHost = (() => { try { const h = window.location.hostname; return !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(h); } catch { return false; } })();
+                    if (!onlineHost) {
+                        try {
+                            const localKey = `demo_reports_${user.id}`;
+                            const localItems = JSON.parse(localStorage.getItem(localKey) || '[]') || [];
+                            if (Array.isArray(localItems) && localItems.length) {
+                                const processed = applyFiltersAndSort(localItems, {}, false);
+                                const getMdFromLocal = (r) => {
                                     try {
-                                        const lid2 = localStorage.getItem('interview_link_' + String(report.id));
-                                        if (lid2) linkedInterviewId = String(lid2);
-                                    } catch {}
+                                        const raw = String(r.markdown_output || '');
+                                        if (raw.trim().startsWith('{')) {
+                                            let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
+                                            if (obj) {
+                                                if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
+                                                if (typeof obj.md === 'string') return String(obj.md || '');
+                                                if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
+                                            }
+                                        }
+                                        const md = raw || String(r.content || '');
+                                        return md;
+                                    } catch { return String(r.content || ''); }
+                                };
+                                const interviewByNameLocal = {};
+                                const normNameLocal = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
+                                for (const r of localItems) {
+                                    const rt = (r.type ?? r.report_type) || '';
+                                    if (rt === 'interview') {
+                                        const mdInt = getMdFromLocal(r);
+                                        const parsedInt = extractSummaryFieldsFromMarkdown(mdInt);
+                                        const nmRaw = String(parsedInt.candidate_name || r.candidate_name || r.title || '').trim();
+                                        const nm = normNameLocal(nmRaw);
+                                        if (nm) interviewByNameLocal[nm] = r.id;
+                                    }
                                 }
-                                return `
-                                <div class="report-item" data-report-id="${escapeHtml(String(report.id))}">
-                                    <div class="report-header">
-                                        <div class="report-header-left">
-                                            <h4>${escapeHtml(safeTitle)}</h4>
-                                            <span class="report-summary">岗位：${escapeHtml(job)}｜匹配度：${escapeHtml(scoreText)}</span>
-                                        </div>
-                                        <div class="report-header-actions">
-                                            <span class="report-type">${reportTypeText}</span>
-                                        </div>
-                                    </div>
-                                    <div class="report-meta">
-                                        <span class="report-date">${new Date(report.created_at).toLocaleString()}</span>
-                                    </div>
-                                    <div class="report-actions">
-                                        <button class="btn-secondary icon-only btn-outline-blue" title="查看报告" onclick="viewSavedReport('${report.id}', true)">
-                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-                                                <circle cx="12" cy="12" r="3" />
-                                            </svg>
-                                        </button>
-                                        <button class="btn-secondary icon-only btn-outline-green" title="进入面试" onclick="enterInterview('${report.id}')">
-                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M3 21V5a2 2 0 0 1 2-2h10" />
-                                                <path d="M14 3h7v18H5a2 2 0 0 1-2-2" />
-                                                <path d="M15 12h4" />
-                                                <path d="M7 12h4" />
-                                            </svg>
-                                        </button>
-                                        ${linkedInterviewId ? renderInterviewRecordButtonHtml(linkedInterviewId) : renderInterviewRecordButtonHtmlAuto(String(report.id), safeTitle)}
-                                        <button class="btn-secondary icon-only btn-danger" title="删除报告" onclick="deleteReport('${report.id}', true)">
-                                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M3 6h18" />
-                                                <path d="M8 6v-2h8v2" />
-                                                <path d="M19 6l-1 14H6L5 6" />
-                                                <path d="M10 11v6" />
-                                                <path d="M14 11v6" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>`;
-                                if (!linkedInterviewId) pendingLocal.push({ id: report.id, candidate: safeTitle });
-                            }).join('');
-                            reportsList.innerHTML = html;
-                            try {
-                                if (pendingLocal.length) {
-                                    (async () => {
-                                        try { await lazyResolveInterviewLinksLocal(pendingLocal, localItems); } catch {}
+                                const displayLocal = processed.filter(r => ((r.type ?? r.report_type) === 'resume'));
+                                const pendingLocal = [];
+                                const html = displayLocal.map(report => {
+                                    const md = getMdFromLocal(report);
+                                    const parsed = extractSummaryFieldsFromMarkdown(md);
+                                    const clean = (s) => String(s || '').replace(/<br\s*\/>/gi, ' ').replace(/<br>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                                    const candidate = clean(parsed.candidate_name || '未命名候选人');
+                                    const job = clean(parsed.job_title || '未知岗位');
+                                    const rawScore = (parsed.match_score != null ? parsed.match_score : (report.match_score ?? null));
+                                    const numScore = (() => {
+                                        if (rawScore === null || rawScore === undefined || rawScore === '') return null;
+                                        const n = parseInt(String(rawScore).trim(), 10);
+                                        if (Number.isFinite(n)) return Math.max(0, Math.min(100, n));
+                                        return null;
                                     })();
-                                }
-                            } catch {}
-                            try { myReportsCache = { uid: user.id, html, ts: Date.now() }; } catch {}
-                        } else {
+                                    const scoreText = (numScore !== null) ? `${Math.round(numScore)}%` : '未知';
+                                    const reportTypeText = '简历分析';
+                                    const safeTitle = candidate || '未命名候选人';
+                                    const normName = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
+                                    let linkedInterviewId = (() => {
+                                        const key = normName(candidate);
+                                        return key ? interviewByNameLocal[key] : null;
+                                    })();
+                                    if (!linkedInterviewId) {
+                                        let mo = {};
+                                        try { mo = JSON.parse(String(report.markdown_output || '{}')); } catch { mo = {}; }
+                                        const lid = mo && mo.interview_link_id ? String(mo.interview_link_id) : '';
+                                        if (lid) linkedInterviewId = lid;
+                                    }
+                                    if (!linkedInterviewId) {
+                                        try {
+                                            const lid2 = localStorage.getItem('interview_link_' + String(report.id));
+                                            if (lid2) linkedInterviewId = String(lid2);
+                                        } catch {}
+                                    }
+                                    return `
+                                    <div class="report-item" data-report-id="${escapeHtml(String(report.id))}">
+                                        <div class="report-header">
+                                            <div class="report-header-left">
+                                                <h4>${escapeHtml(safeTitle)}</h4>
+                                                <span class="report-summary">岗位：${escapeHtml(job)}｜匹配度：${escapeHtml(scoreText)}</span>
+                                            </div>
+                                            <div class="report-header-actions">
+                                                <span class="report-type">${reportTypeText}</span>
+                                            </div>
+                                        </div>
+                                        <div class="report-meta">
+                                            <span class="report-date">${new Date(report.created_at).toLocaleString()}</span>
+                                        </div>
+                                        <div class="report-actions">
+                                            <button class="btn-secondary icon-only btn-outline-blue" title="查看报告" onclick="viewSavedReport('${report.id}', true)">
+                                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+                                                    <circle cx="12" cy="12" r="3" />
+                                                </svg>
+                                            </button>
+                                            <button class="btn-secondary icon-only btn-outline-green" title="进入面试" onclick="enterInterview('${report.id}')">
+                                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M3 21V5a2 2 0 0 1 2-2h10" />
+                                                    <path d="M14 3h7v18H5a2 2 0 0 1-2-2" />
+                                                    <path d="M15 12h4" />
+                                                    <path d="M7 12h4" />
+                                                </svg>
+                                            </button>
+                                            ${linkedInterviewId ? renderInterviewRecordButtonHtml(linkedInterviewId) : renderInterviewRecordButtonHtmlAuto(String(report.id), safeTitle)}
+                                            <button class="btn-secondary icon-only btn-danger" title="删除报告" onclick="deleteReport('${report.id}', true)">
+                                                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <path d="M3 6h18" />
+                                                    <path d="M8 6v-2h8v2" />
+                                                    <path d="M19 6l-1 14H6L5 6" />
+                                                    <path d="M10 11v6" />
+                                                    <path d="M14 11v6" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>`;
+                                    if (!linkedInterviewId) pendingLocal.push({ id: report.id, candidate: safeTitle });
+                                }).join('');
+                                reportsList.innerHTML = html;
+                                try {
+                                    if (pendingLocal.length) {
+                                        (async () => {
+                                            try { await lazyResolveInterviewLinksLocal(pendingLocal, localItems); } catch {}
+                                        })();
+                                    }
+                                } catch {}
+                                try { myReportsCache = { uid: user.id, html, ts: Date.now() }; } catch {}
+                            } else {
+                                reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>';
+                            }
+                        } catch {
                             reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>';
                         }
-                    } catch {
+                    } else {
                         reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>';
                     }
                 }
             }
         } else {
-            // 本地演示模式：从 localStorage 加载
-            const user = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
-            if (!user) {
+            const onlineHost = (() => { try { const h = window.location.hostname; return !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(h); } catch { return false; } })();
+            if (onlineHost) {
+                const reportsList = document.getElementById('reports-list');
+                if (reportsList) { reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>'; }
+                return;
+            } else {
+                const user = await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+                if (!user) {
+                    const reportsList = document.getElementById('reports-list');
+                    if (reportsList) {
+                        reportsList.innerHTML = '<p class="notice">请先登录后查看报告。</p>';
+                    }
+                    return;
+                }
+                const key = `demo_reports_${user.id}`;
+                let reports = [];
+                try { reports = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
                 const reportsList = document.getElementById('reports-list');
                 if (reportsList) {
-                    reportsList.innerHTML = '<p class="notice">请先登录后查看报告。</p>';
-                }
-                return;
-            }
-
-            const key = `demo_reports_${user.id}`;
-            let reports = [];
-            try { reports = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
-
-            const reportsList = document.getElementById('reports-list');
-            if (reportsList) {
-                if (reports && reports.length > 0) {
-                    reportsList.innerHTML = '<p class="notice">请登录后查看云端报告。</p>';
-                } else {
-                    reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>';
+                    if (reports && reports.length > 0) {
+                        reportsList.innerHTML = '<p class="notice">请登录后查看云端报告。</p>';
+                    } else {
+                        reportsList.innerHTML = '<p class="notice">暂无保存的报告。</p>';
+                    }
                 }
             }
         }
@@ -1762,34 +1800,21 @@ function viewSavedReport(reportId, isLocalDemo = false) {
 // 新增：进入面试
 function enterInterview(reportId) {
   try {
-        (async () => {
-            try {
-                const client = window.Auth && window.Auth.supabase;
-                if (client) {
-                    const { data } = await client.from('reports').select('*').eq('id', String(reportId)).limit(1).maybeSingle();
-                    if (data) {
-                        const md = String(data.content || '');
-                        let cn = data.candidate_name || '';
-                        let jt = data.job_title || '';
-                        let ms = data.match_score ?? null;
-                        if ((!cn || !jt) && md) {
-                            try {
-                                const parsed = extractSummaryFieldsFromMarkdown(md);
-                                cn = cn || parsed.candidate_name || '';
-                                jt = jt || parsed.job_title || '';
-                                if (ms == null && parsed.match_score != null) ms = parsed.match_score;
-                            } catch {}
-                        }
-                        try { localStorage.setItem(`interview_source_${reportId}`, JSON.stringify({ md, candidate_name: cn, job_title: jt, match_score: ms })); } catch {}
-                    }
-                }
-            } catch {}
-            const useAlias = (window.location.port === '4000');
-            const path = useAlias ? '/interview' : '/进入面试-AI招聘分析.html';
-            const url = new URL(path, window.location.origin);
-            url.searchParams.set('report_id', String(reportId));
-            window.location.href = url.toString();
-        })();
+        try {
+            const cache = (typeof window !== 'undefined') ? (window.reportsCache || {}) : {};
+            const cached = cache[String(reportId)];
+            if (cached && typeof cached.md === 'string') {
+                const cn = String(cached.candidate_name || '');
+                const jt = String(cached.job_title || '');
+                const ms = (cached.match_score != null) ? Number(cached.match_score) : null;
+                localStorage.setItem(`interview_source_${reportId}`, JSON.stringify({ md: cached.md, candidate_name: cn, job_title: jt, match_score: ms }));
+            }
+        } catch {}
+        const useAlias = (window.location.port === '4000');
+        const path = useAlias ? '/interview' : '/进入面试-AI招聘分析.html';
+        const url = new URL(path, window.location.origin);
+        url.searchParams.set('report_id', String(reportId));
+        window.location.href = url.toString();
   } catch {
         showToast('跳转进入面试页面失败', 'error');
   }
@@ -2042,48 +2067,47 @@ async function openInterviewRecordAuto(resumeId, candidate) {
         let idFound = '';
         if (client && user) {
             try {
-                let all = null; let err = null;
-                {
-                    const resp = await client
+                const candKey = norm(candidate);
+                let found = null;
+                try {
+                    const resp0 = await client
                         .from('reports')
-                        .select('id,user_id,report_type,candidate_name,title,created_at,markdown_output,content')
+                        .select('id')
                         .eq('user_id', user.id)
                         .eq('report_type', 'interview')
-                        .order('created_at', { ascending: false });
-                    all = resp.data; err = resp.error;
-                }
-                if ((!all || all.length === 0) && err && (String(err.code) === '42703' || /column .* does not exist/i.test(err.message || ''))) {
-                    const resp2 = await client
-                        .from('reports')
-                        .select('id,user_id,type,candidate_name,title,created_at,markdown_output,content')
-                        .eq('user_id', user.id)
-                        .eq('type', 'interview')
-                        .order('created_at', { ascending: false });
-                    all = resp2.data;
-                }
-                const getMd = (r) => {
-                    try {
-                        const raw = String(r.markdown_output || '');
-                        if (raw.trim().startsWith('{')) {
-                            let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
-                            if (obj) {
-                                if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
-                                if (typeof obj.md === 'string') return String(obj.md || '');
-                                if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
-                            }
-                        }
-                        const md = raw || String(r.content || '');
-                        return md;
-                    } catch { return String(r.content || ''); }
-                };
-                const candKey = norm(candidate);
-                for (const r of (all || [])) {
-                    let cn = String(r.candidate_name || '');
-                    if (!cn) {
-                        try { const p = extractSummaryFieldsFromMarkdown(getMd(r)); cn = p.candidate_name || ''; } catch {}
+                        .ilike('candidate_name', candidate)
+                        .limit(1)
+                        .maybeSingle();
+                    found = resp0?.data || null;
+                } catch {}
+                if (found && found.id) {
+                    idFound = String(found.id);
+                } else {
+                    let all = null; let err = null;
+                    {
+                        const resp = await client
+                            .from('reports')
+                            .select('id,candidate_name,title,created_at')
+                            .eq('user_id', user.id)
+                            .eq('report_type', 'interview')
+                            .order('created_at', { ascending: false })
+                            .limit(100);
+                        all = resp.data; err = resp.error;
                     }
-                    const key = norm(cn || r.title || '');
-                    if (key && key === candKey) { idFound = String(r.id); break; }
+                    if ((!all || all.length === 0) && err && (String(err.code) === '42703' || /column .* does not exist/i.test(err.message || ''))) {
+                        const resp2 = await client
+                            .from('reports')
+                            .select('id,candidate_name,title,created_at')
+                            .eq('user_id', user.id)
+                            .eq('type', 'interview')
+                            .order('created_at', { ascending: false })
+                            .limit(100);
+                        all = resp2.data;
+                    }
+                    for (const r of (all || [])) {
+                        const key = norm(String(r.candidate_name || r.title || ''));
+                        if (key && key === candKey) { idFound = String(r.id); break; }
+                    }
                 }
             } catch {}
             if (idFound) {
@@ -2099,38 +2123,40 @@ async function openInterviewRecordAuto(resumeId, candidate) {
                 return viewInterviewRecord(idFound);
             }
         }
-        // Local fallback
-        try {
-            const u = user || await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
-            const keyLS = u ? `demo_reports_${u.id}` : '';
-            let arr = []; try { arr = keyLS ? JSON.parse(localStorage.getItem(keyLS) || '[]') : []; } catch {}
-            const candKey = norm(candidate);
-            for (const r of arr) {
-                if ((r.type ?? r.report_type) !== 'interview') continue;
-                let md = '';
-                try {
-                    const raw = String(r.markdown_output || '');
-                    if (raw.trim().startsWith('{')) { let obj = JSON.parse(raw); md = String(obj.resume_md || obj.ai_analysis_md || obj.md || ''); }
-                } catch {}
-                let cn = String(r.candidate_name || '');
-                if (!cn && md) { try { const p = extractSummaryFieldsFromMarkdown(md); cn = p.candidate_name || ''; } catch {} }
-                const key = norm(cn || r.title || '');
-                if (key && key === candKey) { idFound = String(r.id); break; }
-            }
-            if (idFound) {
-                try {
-                    const idx = arr.findIndex(r => String(r.id) === String(resumeId));
-                    if (idx >= 0) {
-                        let mo = {}; try { mo = JSON.parse(String(arr[idx].markdown_output || '{}')); } catch { mo = {}; }
-                        mo.interview_link_id = String(idFound);
-                        arr[idx].markdown_output = JSON.stringify(mo);
-                        localStorage.setItem(keyLS, JSON.stringify(arr));
-                    }
-                    localStorage.setItem('interview_link_' + String(resumeId), String(idFound));
-                } catch {}
-                return viewInterviewRecord(idFound);
-            }
-        } catch {}
+        const onlineHost = (() => { try { const h = window.location.hostname; return !/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(h); } catch { return false; } })();
+        if (!onlineHost) {
+            try {
+                const u = user || await (window.Auth && typeof window.Auth.getCurrentUser === 'function' ? window.Auth.getCurrentUser() : null);
+                const keyLS = u ? `demo_reports_${u.id}` : '';
+                let arr = []; try { arr = keyLS ? JSON.parse(localStorage.getItem(keyLS) || '[]') : []; } catch {}
+                const candKey = norm(candidate);
+                for (const r of arr) {
+                    if ((r.type ?? r.report_type) !== 'interview') continue;
+                    let md = '';
+                    try {
+                        const raw = String(r.markdown_output || '');
+                        if (raw.trim().startsWith('{')) { let obj = JSON.parse(raw); md = String(obj.resume_md || obj.ai_analysis_md || obj.md || ''); }
+                    } catch {}
+                    let cn = String(r.candidate_name || '');
+                    if (!cn && md) { try { const p = extractSummaryFieldsFromMarkdown(md); cn = p.candidate_name || ''; } catch {} }
+                    const key = norm(cn || r.title || '');
+                    if (key && key === candKey) { idFound = String(r.id); break; }
+                }
+                if (idFound) {
+                    try {
+                        const idx = arr.findIndex(r => String(r.id) === String(resumeId));
+                        if (idx >= 0) {
+                            let mo = {}; try { mo = JSON.parse(String(arr[idx].markdown_output || '{}')); } catch { mo = {}; }
+                            mo.interview_link_id = String(idFound);
+                            arr[idx].markdown_output = JSON.stringify(mo);
+                            localStorage.setItem(keyLS, JSON.stringify(arr));
+                        }
+                        localStorage.setItem('interview_link_' + String(resumeId), String(idFound));
+                    } catch {}
+                    return viewInterviewRecord(idFound);
+                }
+            } catch {}
+        }
         showToast('未找到面试记录', 'warning');
     } catch { showToast('打开面试记录失败', 'error'); }
 }
@@ -2144,7 +2170,7 @@ async function lazyResolveInterviewLinksCloud(pendingList) {
         {
             const resp = await client
                 .from('reports')
-                .select('id,user_id,report_type,candidate_name,title,created_at,markdown_output,content')
+                .select('id,user_id,report_type,candidate_name,title,created_at')
                 .eq('user_id', user.id)
                 .eq('report_type', 'interview')
                 .order('created_at', { ascending: false });
@@ -2153,36 +2179,16 @@ async function lazyResolveInterviewLinksCloud(pendingList) {
         if ((!all || all.length === 0) && err && (String(err.code) === '42703' || /column .* does not exist/i.test(err.message || ''))) {
             const resp2 = await client
                 .from('reports')
-                .select('id,user_id,type,candidate_name,title,created_at,markdown_output,content')
+                .select('id,user_id,type,candidate_name,title,created_at')
                 .eq('user_id', user.id)
                 .eq('type', 'interview')
                 .order('created_at', { ascending: false });
             all = resp2.data;
         }
         const norm = (s) => String(s || '').replace(/[\s\*＊·•●○☆★]/g,'').toLowerCase();
-        const getMdFromAny = (r) => {
-            try {
-                const raw = String(r.markdown_output || '');
-                if (raw.trim().startsWith('{')) {
-                    let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
-                    if (obj) {
-                        if (typeof obj.resume_md === 'string') return String(obj.resume_md || '');
-                        if (typeof obj.md === 'string') return String(obj.md || '');
-                        if (typeof obj.ai_analysis_md === 'string') return String(obj.ai_analysis_md || '');
-                    }
-                }
-                const md = raw || String(r.content || '');
-                return md;
-            } catch { return String(r.content || ''); }
-        };
         const mapByName = {};
         for (const r of (all || [])) {
-            const md = getMdFromAny(r);
-            let cn = String(r.candidate_name || '');
-            if ((!cn || !cn.trim()) && md) {
-                try { const p = extractSummaryFieldsFromMarkdown(md); cn = p.candidate_name || ''; } catch {}
-            }
-            const key = norm(cn || r.title || '');
+            const key = norm(String(r.candidate_name || r.title || ''));
             if (key && !mapByName[key]) mapByName[key] = String(r.id);
         }
         for (const item of pendingList) {
@@ -2219,20 +2225,20 @@ async function lazyResolveInterviewLinksLocal(pendingList, localItems) {
         for (const r of localItems) {
             const rt = (r.type ?? r.report_type) || '';
             if (rt !== 'interview') continue;
-            let md = '';
-            try {
-                const raw = String(r.markdown_output || '');
-                if (raw.trim().startsWith('{')) {
-                    let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
-                    if (obj) {
-                        md = String(obj.resume_md || obj.ai_analysis_md || obj.md || '');
-                    }
-                }
-                if (!md) md = String(r.content || '');
-            } catch { md = String(r.content || ''); }
             let cn = String(r.candidate_name || '');
-            if (!cn && md) {
-                try { const p = extractSummaryFieldsFromMarkdown(md); cn = p.candidate_name || ''; } catch {}
+            if (!cn) {
+                let md = '';
+                try {
+                    const raw = String(r.markdown_output || '');
+                    if (raw.trim().startsWith('{')) {
+                        let obj = null; try { obj = JSON.parse(raw); } catch { obj = null; }
+                        if (obj) md = String(obj.resume_md || obj.ai_analysis_md || obj.md || '');
+                    }
+                    if (!md) md = String(r.content || '');
+                } catch { md = String(r.content || ''); }
+                if (md) {
+                    try { const p = extractSummaryFieldsFromMarkdown(md); cn = p.candidate_name || ''; } catch {}
+                }
             }
             const key = norm(cn || r.title || '');
             if (key && !mapByName[key]) mapByName[key] = String(r.id);
@@ -2555,7 +2561,22 @@ async function deleteReport(reportId, isLocalDemo = false) {
             try { localStorage.setItem(key, JSON.stringify(items)); } catch {}
             showToast('已删除报告', 'success');
         }
-        await loadMyReports();
+        try {
+            const escSel = (s) => { try { return CSS.escape(s); } catch { return String(s).replace(/"|'|\\/g,''); } };
+            const list = document.getElementById('reports-list');
+            const card = list ? list.querySelector(`.report-item[data-report-id="${escSel(String(reportId))}"]`) : null;
+            if (card) {
+                const parent = card.parentElement;
+                card.remove();
+                if (list && !list.querySelector('.report-item')) {
+                    list.innerHTML = '<p class="notice">暂无保存的报告。</p>';
+                } else if (parent && !parent.querySelector('.report-item')) {
+                    parent.innerHTML = '<p class="notice">暂无保存的报告。</p>';
+                }
+            } else {
+                await loadMyReports();
+            }
+        } catch { await loadMyReports(); }
     } catch (err) {
         console.error('Delete report error:', err);
         showToast('删除报告失败', 'error');
