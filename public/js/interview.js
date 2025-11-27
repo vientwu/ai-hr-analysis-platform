@@ -1106,8 +1106,9 @@
 
   async function shareRecordLink() {
     try {
-      const path = '/interview-record';
-      const url = new URL(path, 'http://127.0.0.1:4000');
+      const useAlias = (window.location.port === '4000');
+      const path = useAlias ? '/interview-record' : '面试记录-AI招聘分析.html';
+      const url = new URL(path, window.location.href);
       const id = qs('report_id');
       if (id) url.searchParams.set('report_id', id);
       await navigator.clipboard.writeText(url.toString());

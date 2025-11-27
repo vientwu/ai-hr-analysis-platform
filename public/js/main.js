@@ -1811,8 +1811,8 @@ function enterInterview(reportId) {
             }
         } catch {}
         const useAlias = (window.location.port === '4000');
-        const path = useAlias ? '/interview' : '/进入面试-AI招聘分析.html';
-        const url = new URL(path, window.location.origin);
+        const path = useAlias ? '/interview' : '进入面试-AI招聘分析.html';
+        const url = new URL(path, window.location.href);
         url.searchParams.set('report_id', String(reportId));
         window.location.href = url.toString();
   } catch {
@@ -2049,9 +2049,9 @@ async function clearInterviewTime(reportId) {
 }
 function viewInterviewRecord(reportId) {
     try {
-        const base = 'http://127.0.0.1:4000';
-        const path = '/interview-record';
-        const url = new URL(path, base);
+        const useAlias = (window.location.port === '4000');
+        const path = useAlias ? '/interview-record' : '面试记录-AI招聘分析.html';
+        const url = new URL(path, window.location.href);
         url.searchParams.set('report_id', String(reportId));
         window.location.href = url.toString();
     } catch {
