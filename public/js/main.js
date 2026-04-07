@@ -76,6 +76,7 @@ function setupEventListeners() {
 window.addEventListener('auth-changed', (e) => {
   const user = e.detail?.user || null;
   isLoggedIn = !!user;
+  window.isLoggedIn = isLoggedIn;
   updateAuthUI(user);
   try {
     const mod = document.getElementById('my-reports-module');
@@ -277,6 +278,11 @@ function initNewResumeFallback() {
         }
 
         async function runAnalysis() {
+            if (!isLoggedIn) {
+                showToast('请先登录后使用此功能', 'warning');
+                if (typeof openLoginModal === 'function') openLoginModal();
+                return;
+            }
             const jd = (jdTextarea && jdTextarea.value) ? jdTextarea.value : '';
             if (!selectedFiles || selectedFiles.length === 0) { showToast('请先选择至少一个简历文件'); return; }
             try {
@@ -820,7 +826,17 @@ async function handleEmailLogin() {
     
     try {
         if (window.Auth) {
+            const loginBtn = document.querySelector('#login-actions .btn-primary');
+            const originalText = loginBtn ? loginBtn.innerHTML : '';
+            if (loginBtn) {
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+            }
             const result = await window.Auth.signIn(email, password);
+            if (loginBtn) {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = originalText;
+            }
             if (result.error) {
                 showLoginError(result.error.message || '登录失败，请检查邮箱和密码');
             } else {
@@ -1195,6 +1211,11 @@ async function analyzeResume() {
 }
 
 async function analyzeInterview() {
+    if (!isLoggedIn) {
+        showToast('请先登录后使用此功能', 'warning');
+        if (typeof openLoginModal === 'function') openLoginModal();
+        return;
+    }
     if (!interviewFile) {
         showToast('请先上传面试转写文档（PDF/DOC/DOCX）', 'error');
         return;

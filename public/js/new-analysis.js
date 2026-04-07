@@ -704,6 +704,11 @@ window.NewAnalysisInit = function() {
   };
 
   if (startBtn) startBtn.addEventListener('click', async () => {
+    if (!window.isLoggedIn) {
+      if (typeof window.showToast === 'function') window.showToast('请先登录后使用此功能', 'warning');
+      if (typeof window.openLoginModal === 'function') window.openLoginModal();
+      return;
+    }
     const jd = jdInput.value.trim();
     if (!jd) { showToast('请输入JD'); return; }
     const validTexts = (resumeTexts || []).filter(t => t && t.trim().length > 0);

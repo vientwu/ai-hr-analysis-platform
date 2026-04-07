@@ -64,7 +64,7 @@
       <div class="upload-group">
         <label data-zh="上传简历文件（可多选）" data-en="Upload resumes (multiple)">上传简历文件（可多选）</label>
         <div class="file-upload">
-          <div class="upload-area" onclick="document.getElementById('new-resume-files').click()">
+          <div class="upload-area" onclick="(function(){if(!window.isLoggedIn){if(window.showToast)window.showToast('请先登录后使用此功能','warning');if(window.openLoginModal)window.openLoginModal();return;}document.getElementById('new-resume-files').click();})()">
             <i class="fas fa-cloud-upload-alt"></i>
             <p data-zh="点击或拖拽文件到此处" data-en="Click or drag files here">点击或拖拽文件到此处</p>
             <small data-zh="支持 PDF（含图片型）、DOCX、TXT、RTF、PNG/JPG，最大 50MB/文件" data-en="Supports PDF (incl. scanned), DOCX, TXT, RTF, PNG/JPG, up to 50MB/file">支持 PDF（含图片型）、DOCX、TXT、RTF、PNG/JPG，最大 50MB/文件</small>

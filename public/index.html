@@ -244,7 +244,7 @@
                 <div class="upload-group">
                     <label data-zh="上传简历文件（可多选）" data-en="Upload resumes (multiple)">上传简历文件（可多选）</label>
                     <div class="file-upload">
-                        <div class="upload-area" onclick="document.getElementById('new-resume-files').click()">
+                        <div class="upload-area" onclick="(function(){if(!window.isLoggedIn){if(window.showToast)window.showToast('请先登录后使用此功能','warning');if(window.openLoginModal)window.openLoginModal();return;}document.getElementById('new-resume-files').click();})()">
                             <i class="fas fa-cloud-upload-alt"></i>
                             <p data-zh="点击或拖拽文件到此处" data-en="Click or drag files here">点击或拖拽文件到此处</p>
                             <small data-zh="支持 PDF（含图片型）、DOCX、TXT、RTF、PNG/JPG，最大 50MB/文件" data-en="Supports PDF (incl. scanned), DOCX, TXT, RTF, PNG/JPG, up to 50MB/file">支持 PDF（含图片型）、DOCX、TXT、RTF、PNG/JPG，最大 50MB/文件</small>
@@ -313,7 +313,7 @@
                 <div class="upload-group">
                     <label data-zh="面试转写文档（PDF/DOC/DOCX/TXT/RTF/PNG/JPG）" data-en="Interview Transcript Document (PDF/DOC/DOCX/TXT/RTF/PNG/JPG)">面试转写文档（PDF/DOC/DOCX/TXT/RTF/PNG/JPG）</label>
                     <div class="file-upload" id="interview-upload">
-                        <div class="upload-area" onclick="document.getElementById('interview-file').click()">
+                        <div class="upload-area" onclick="(function(){if(!window.isLoggedIn){if(window.showToast)window.showToast('请先登录后使用此功能','warning');if(window.openLoginModal)window.openLoginModal();return;}document.getElementById('interview-file').click();})()">
                             <i class="fas fa-file-word"></i>
                             <p data-zh="点击或拖拽 PDF/DOC/DOCX/TXT/RTF/PNG/JPG 文件到此处" data-en="Click or drag PDF/DOC/DOCX/TXT/RTF/PNG/JPG file here">点击或拖拽 PDF/DOC/DOCX/TXT/RTF/PNG/JPG 文件到此处</p>
                             <small data-zh="支持 PDF、DOC、DOCX、TXT、RTF、PNG、JPG 格式，最大 500MB" data-en="Supports PDF, DOC, DOCX, TXT, RTF, PNG, JPG formats, max 500MB">

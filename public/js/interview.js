@@ -333,11 +333,24 @@
     const pauseBtn = document.getElementById('pauseRecordBtn');
     const stopBtn = document.getElementById('stopRecordBtn');
     const startAnalysisBtn = document.querySelector('#startAiAnalysisBtn');
-    if (uploadBtn) uploadBtn.addEventListener('click', showUploadUI);
-    if (startBtn) startBtn.addEventListener('click', startRecording);
+    
+    function requireLogin(fn) {
+      return function(...args) {
+        if (!window.isLoggedIn) {
+          if (typeof window.openLoginModal === 'function') window.openLoginModal();
+          else alert('请先登录后使用此功能');
+          return;
+        }
+        return fn.apply(this, args);
+      };
+    }
+
+    if (uploadBtn) uploadBtn.addEventListener('click', requireLogin(showUploadUI));
+    if (startBtn) startBtn.addEventListener('click', requireLogin(startRecording));
     if (pauseBtn) pauseBtn.addEventListener('click', pauseRecording);
     if (stopBtn) stopBtn.addEventListener('click', stopRecording);
-    if (startAnalysisBtn) startAnalysisBtn.addEventListener('click', startAnalysis);
+    if (startAnalysisBtn) startAnalysisBtn.addEventListener('click', requireLogin(startAnalysis));
+    
     const select = document.getElementById('audioSourceSelect');
     if (select) select.addEventListener('change', () => {});
     const fileInput = document.getElementById('interview-file');
