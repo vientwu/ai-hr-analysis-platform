@@ -665,7 +665,10 @@
           <input type="text" id="custom-model" placeholder="如 anthropic/claude-3.7-sonnet">
         </div>
         <div class="form-group">
-          <label for="prompt-resume">简历信息提取提示词</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">
+            <label for="prompt-resume" style="margin-bottom:0;">简历信息提取提示词</label>
+            <button class="btn-secondary" id="apply-default-prompts" style="padding: 4px 8px; font-size: 12px;"><i class="fas fa-magic"></i> 一键套用默认提示词</button>
+          </div>
           <textarea id="prompt-resume" rows="6" placeholder="粘贴或编辑提示词"></textarea>
         </div>
         <div class="form-group">

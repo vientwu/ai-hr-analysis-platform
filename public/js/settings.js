@@ -104,6 +104,39 @@
     } catch { if (promptStatus) promptStatus.innerText = '加载失败'; }
   };
 
+  const applyDefaultPrompts = async () => {
+    try {
+      const btn = document.getElementById('apply-default-prompts');
+      if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 加载中...';
+      
+      const resumePrompt = await fetchPrompt('简历信息分析提示词');
+      const jdPrompt = await fetchPrompt('岗位画像生成提示词');
+      const matchPrompt = await fetchPrompt('简历匹配度+面试分析+面试问题生成提示词');
+      
+      if (promptResumeInput && resumePrompt) promptResumeInput.value = resumePrompt;
+      if (promptJdInput && jdPrompt) promptJdInput.value = jdPrompt;
+      if (promptMatchInput && matchPrompt) promptMatchInput.value = matchPrompt;
+      // Note: There is no '面试综合分析提示词' file in the root based on previous searches,
+      // so we use a fallback or leave it as is. If it exists later, it can be fetched similarly.
+      if (promptInterviewInput) {
+        const interviewFallback = "你是资深面试官。基于候选人简历报告、面试实时转写记录与面试官笔记，进行综合评估并输出：\n1) 综合评分与结论\n2) 能力维度评分(产品思维/数据能力/沟通表达/技术理解)\n3) 表现亮点\n4) 需要关注的点\n5) 下一轮重点与薪资建议。";
+        promptInterviewInput.value = interviewFallback;
+      }
+      
+      if (btn) {
+        btn.innerHTML = '<i class="fas fa-check"></i> 已套用';
+        setTimeout(() => {
+          btn.innerHTML = '<i class="fas fa-magic"></i> 一键套用默认提示词';
+        }, 2000);
+      }
+      if (promptStatus) promptStatus.innerText = '已加载默认';
+    } catch (err) {
+      console.error('Apply default prompts failed', err);
+      const btn = document.getElementById('apply-default-prompts');
+      if (btn) btn.innerHTML = '<i class="fas fa-magic"></i> 一键套用默认提示词';
+    }
+  };
+
   const setConnStatus = (ok, msg) => {
     if (!connStatus) return;
     connStatus.textContent = ok ? (msg || '已连接') : (msg || '连接失败');
@@ -195,6 +228,10 @@
   if (closeBtn) closeBtn.addEventListener('click', closeSettings);
   if (saveBtn) saveBtn.addEventListener('click', saveSettings);
   if (providerSelect) providerSelect.addEventListener('change', refreshModels);
+  
+  const applyBtn = document.getElementById('apply-default-prompts');
+  if (applyBtn) applyBtn.addEventListener('click', applyDefaultPrompts);
+  
   if (loadDefaultPromptsBtn) loadDefaultPromptsBtn.addEventListener('click', () => {
     if (promptResumeInput) promptResumeInput.value = '';
     if (promptMatchInput) promptMatchInput.value = '';
