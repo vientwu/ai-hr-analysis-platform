@@ -1,0 +1,32 @@
+localStorage.setItem('COZE_PAT', 'pat_IVdrUr3cpkBnRvGvM4oO6A9OpW8nSGmgWj2DoQzgsaSDVAXYFIWpoOADm0pIZPtF')
+undefined
+api.js:32  POST https://ai-hr-analysis-platform.vercel.app/api/resume-analyze 504 (Gateway Timeout)
+callResumeAnalysisAPI @ api.js:32
+await in callResumeAnalysisAPI
+analyzeResume @ main.js:589
+onclick @ (index):112
+api.js:48 简历分析API调用失败: Error: API请求失败: 504 
+An error occurred with your deployment
+
+FUNCTION_INVOCATION_TIMEOUT
+
+sin1::kvz8c-1762942786341-dcc3bd3668bb
+
+    at Object.callResumeAnalysisAPI (api.js:43:19)
+    at async analyzeResume (main.js:589:24)
+callResumeAnalysisAPI @ api.js:48
+await in callResumeAnalysisAPI
+analyzeResume @ main.js:589
+onclick @ (index):112
+main.js:594 Resume analysis error: Error: API请求失败: 504 
+An error occurred with your deployment
+
+FUNCTION_INVOCATION_TIMEOUT
+
+sin1::kvz8c-1762942786341-dcc3bd3668bb
+
+    at Object.callResumeAnalysisAPI (api.js:43:19)
+    at async analyzeResume (main.js:589:24)
+analyzeResume @ main.js:594
+await in analyzeResume
+onclick @ (index):112

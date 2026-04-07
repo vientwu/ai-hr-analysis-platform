@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "outputDirectory": "public",
+  "functions": {
+    "api/health.js": {
+      "maxDuration": 10
+    },
+    "api/status.js": {
+      "maxDuration": 10
+    },
+    "api/resume-analyze.js": {
+      "maxDuration": 60
+    },
+    "api/interview-analyze.js": {
+      "maxDuration": 60
+    }
+  }
+}
